@@ -1,0 +1,70 @@
+);  1000                                   // total shares  ethers.utils.parseEther("100"),        // value: 100 ETH  "123 Blockchain Avenue, Crypto City",  // locationawait tokenIT.registerAndFractionalizeProperty(
+.exit
+);  1000                                   // total shares  ethers.utils.parseEther("100"),        // value: 100 ETH  "123 Blockchain Avenue, Crypto City",  // locationawait tokenIT.registerAndFractionalizeProperty(
+await provider.getTransaction("0x6b7a6addd91b7602964de9e0050d9cbe1256339836e8fcee6f06ac58e0b4b284");
+await provider.getCode("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+const provider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:8545");
+await TokenIT.getProperty(1);
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+.exit
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+await provider.getBlockNumber();
+await provider.getCode("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+const provider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:8545");
+.exit
+await TokenIT.getProperty(1);
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+.exit
+await TokenIT.getProperty(1);
+.exit
+await TokenIT.getProperty(1);
+.exit
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+.exit
+await ethers.provider.getBlockNumber()
+.exit
+await TokenIT.getProperty(1);
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave, Crypto City", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+.exit
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+.exit
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "PASTE_TOKENIT_ADDRESS_HERE");
+await provider.getBlockNumber()
+console.log("Contract code:", code);
+const code = await provider.getCode("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+const provider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:8545");
+.exit
+await TokenIT.getProperty(1);
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+.exit
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave, Crypto City", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+.exit
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave, Crypto City", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "PASTE_NEW_TOKENIT_ADDRESS");
+.exit
+await TokenIT.getTotalProperties();
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+.exit
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave, Crypto City", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+.exit
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "PASTE_NEW_TOKENIT_ADDRESS");
+.exit
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave, Crypto City", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+.exit
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave, Crypto City", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "YOUR_TOKENIT_ADDRESS_HERE");
+.exit
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave, Crypto City", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+await TokenIT.registerAndFractionalizeProperty("123 Blockchain Ave, Crypto City", ethers.utils.parseEther("100"), 1000);
+const TokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");734CE288F8367e1Bb143E90bb3F0512");734CE288F8367e1Bb143E90bb3F0512");

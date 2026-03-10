@@ -1,0 +1,32 @@
+{
+  "name": "tokenit-reit-platform",
+  "version": "1.0.0",
+  "description": "TokenIT - Blockchain REIT Platform for University Project",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat run scripts/deploy.js",
+    "demo": "hardhat run scripts/demo.js",
+    "node": "hardhat node",
+    "create-property": "hardhat run scripts/create-property.js",
+    "quick-create": "hardhat run scripts/quick-create.js"
+  },
+  "keywords": [
+    "blockchain",
+    "ethereum",
+    "solidity",
+    "hardhat",
+    "reit",
+    "tokenization"
+  ],
+  "author": "University Project Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "2.0.2",
+    "hardhat": "2.28.4"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  }
+}
