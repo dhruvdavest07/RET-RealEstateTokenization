@@ -93,10 +93,18 @@ export function InvestorActions({
               value={sharesToBuy}
               onChange={(e) => setSharesToBuy(e.target.value)}
               className="input"
-              placeholder="Enter amount"
-              min="1"
-              max="1000"
+              placeholder={`Max: ${property.availableShares || '?'}`}
+              min={property.minPurchaseAmount || 1}
+              max={property.maxPurchaseAmount > 0 ? property.maxPurchaseAmount : (property.availableShares || 1000)}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Available: {property.availableShares || '?'} shares
+              {property.minPurchaseAmount > 1 && ` | Min: ${property.minPurchaseAmount}`}
+              {property.maxPurchaseAmount > 0 && ` | Max per tx: ${property.maxPurchaseAmount}`}
+            </p>
+            <p className="text-xs text-orange-600 mt-1">
+              Limit: Cannot buy more than 50% of available shares at once
+            </p>
           </div>
 
           <div className="flex justify-between text-sm text-gray-600">
