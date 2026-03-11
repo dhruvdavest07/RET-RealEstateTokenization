@@ -76,10 +76,18 @@ export function PropertyDashboard({ property, investorInfo, isLoading, onRefresh
       </div>
 
       {/* Property Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-blue-50 rounded-lg p-4">
           <p className="text-sm text-blue-600 font-medium mb-1">Total Shares</p>
           <p className="text-2xl font-bold text-blue-900">{property.totalShares}</p>
+        </div>
+
+        <div className="bg-teal-50 rounded-lg p-4">
+          <p className="text-sm text-teal-600 font-medium mb-1">Available Shares</p>
+          <p className="text-2xl font-bold text-teal-900">{property.availableShares || '?'}</p>
+          <p className="text-xs text-teal-600 mt-1">
+            {property.totalShares ? ((parseInt(property.availableShares || 0) / parseInt(property.totalShares) * 100).toFixed(1)) : 0}% left
+          </p>
         </div>
 
         <div className="bg-green-50 rounded-lg p-4">
@@ -98,12 +106,30 @@ export function PropertyDashboard({ property, investorInfo, isLoading, onRefresh
             {(parseFloat(property.sharePrice) * parseInt(property.totalShares)).toFixed(1)} ETH
           </p>
         </div>
+
+        <div className="bg-indigo-50 rounded-lg p-4">
+          <p className="text-sm text-indigo-600 font-medium mb-1">Sold Shares</p>
+          <p className="text-2xl font-bold text-indigo-900">
+            {parseInt(property.totalShares || 0) - parseInt(property.availableShares || 0)}
+          </p>
+        </div>
       </div>
 
-      {/* Share Token Address */}
+      {/* Share Token Address & Proceeds */}
       <div className="bg-gray-50 rounded-lg p-4 mb-6">
         <p className="text-sm text-gray-600 font-medium mb-1">Share Token Contract</p>
         <p className="text-sm font-mono text-gray-800 break-all">{property.shareToken}</p>
+      </div>
+
+      {/* Share Sale Proceeds - Visible to all for transparency */}
+      <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg p-4 mb-6 border border-emerald-200">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-sm text-emerald-700 font-medium">Share Sale Proceeds</p>
+            <p className="text-xs text-emerald-600">Total ETH from share sales (admin withdrawable)</p>
+          </div>
+          <span className="text-2xl font-bold text-emerald-700">{property.shareSaleProceeds || '0'} ETH</span>
+        </div>
       </div>
 
       {/* Investor Info (if connected) */}

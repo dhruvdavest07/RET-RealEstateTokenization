@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { ethers } from 'ethers';
 import { useWeb3 } from './hooks/useWeb3';
 import { useProperty } from './hooks/useProperty';
 import { Header } from './components/Header';
@@ -33,6 +34,8 @@ function App() {
     claimDividends,
     depositRent,
     checkIsAdmin,
+    registerProperty,
+    withdrawShareSaleProceeds,
   } = useProperty(contract, account);
 
   // Check admin status when connected
@@ -96,6 +99,27 @@ function App() {
   const handleDepositRent = async (propId, amount) => {
     const result = await depositRent(propId, amount);
     showToast('Rent deposited successfully!', 'success');
+    return result;
+  };
+
+  const handleRegisterProperty = async (location, valueEth, totalShares, minPurchase = 1, maxPurchase = 0) => {
+    // convert value to wei
+    const valueWei = ethers.utils.parseEther(valueEth);
+    const { txHash, propertyId: newId } = await registerProperty(location, valueWei, totalShares, minPurchase, maxPurchase);
+    showToast(`Property registered! ID: ${newId || '(unknown)'} Tx: ${txHash.slice(0, 10)}...`, 'success');
+
+    // automatically load the new property if we know its id
+    if (newId) {
+      setPropertyId(newId);
+      loadProperty(newId);
+    }
+
+    return { txHash, propertyId: newId };
+  };
+
+  const handleWithdrawProceeds = async (propId, amount) => {
+    const result = await withdrawShareSaleProceeds(propId, amount);
+    showToast('Share sale proceeds withdrawn successfully!', 'success');
     return result;
   };
 
@@ -197,6 +221,8 @@ function App() {
               isConnected={isConnected}
               account={account}
               onDepositRent={handleDepositRent}
+              onRegisterProperty={handleRegisterProperty}
+              onWithdrawProceeds={handleWithdrawProceeds}
               isLoading={propertyLoading}
               checkIsAdmin={checkIsAdmin}
             />

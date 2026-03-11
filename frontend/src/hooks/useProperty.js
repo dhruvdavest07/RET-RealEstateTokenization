@@ -43,14 +43,26 @@ export function useProperty(contract, account) {
         return;
       }
       
+      // Get available shares from the share token contract
+      const shareTokenContract = new ethers.Contract(
+        propertyData.shareToken,
+        ['function getAvailableShares() view returns (uint256)', 'function balanceOf(address) view returns (uint256)'],
+        contract.provider
+      );
+      const availableShares = await shareTokenContract.getAvailableShares();
+      
       setProperty({
         propertyId: propertyData.propertyId.toString(),
         nftTokenId: propertyData.nftTokenId.toString(),
         shareToken: propertyData.shareToken,
         totalShares: propertyData.totalShares.toString(),
+        availableShares: availableShares.toString(),
+        shareSaleProceeds: ethers.utils.formatEther(propertyData.shareSaleProceeds || 0),
         rentPool: ethers.utils.formatEther(propertyData.rentPool),
         fractionalized: propertyData.fractionalized,
         sharePrice: ethers.utils.formatEther(propertyData.sharePrice),
+        minPurchaseAmount: propertyData.minPurchaseAmount?.toString() || '1',
+        maxPurchaseAmount: propertyData.maxPurchaseAmount?.toString() || '0',
       });
 
       // Load investor info if account is connected
@@ -177,6 +189,55 @@ export function useProperty(contract, account) {
     }
   }, [contract, account]);
 
+  // Register a new property (admin only)
+  const registerProperty = useCallback(async (location, valueWei, totalShares, minPurchase = 1, maxPurchase = 0) => {
+    if (!contract) throw new Error('Contract not initialized');
+
+    try {
+      // Use full function signature for overloaded function
+      const tx = await contract['registerAndFractionalizeProperty(string,uint256,uint256,uint256,uint256)'](location, valueWei, totalShares, minPurchase, maxPurchase);
+      const receipt = await tx.wait();
+
+      // attempt to parse the event to retrieve the new property id
+      let newId = null;
+      for (const log of receipt.logs) {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          if (parsed.name === 'PropertyFractionalized') {
+            newId = parsed.args.propertyId.toString();
+            break;
+          }
+        } catch (e) {
+          // ignore logs that don't belong to this interface
+        }
+      }
+
+      return { txHash: tx.hash, propertyId: newId };
+    } catch (err) {
+      console.error('Error registering property:', err);
+      throw err;
+    }
+  }, [contract]);
+
+  // Withdraw share sale proceeds (admin only)
+  const withdrawShareSaleProceeds = useCallback(async (propertyId, amount = '0') => {
+    if (!contract) throw new Error('Contract not initialized');
+
+    try {
+      const amountWei = amount === '0' ? '0' : ethers.utils.parseEther(amount);
+      const tx = await contract.withdrawShareSaleProceeds(propertyId, amountWei);
+      await tx.wait();
+      
+      // Reload data after withdrawal
+      await loadProperty(propertyId);
+      
+      return tx.hash;
+    } catch (err) {
+      console.error('Error withdrawing proceeds:', err);
+      throw err;
+    }
+  }, [contract, loadProperty]);
+
   return {
     property,
     investorInfo,
@@ -188,5 +249,7 @@ export function useProperty(contract, account) {
     claimDividends,
     depositRent,
     checkIsAdmin,
+    registerProperty,
+    withdrawShareSaleProceeds,
   };
 }

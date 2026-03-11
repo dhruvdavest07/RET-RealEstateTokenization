@@ -23,8 +23,11 @@ contract TokenIT {
         address shareToken;
         uint256 totalShares;
         uint256 rentPool;
+        uint256 shareSaleProceeds; // NEW: Track share sale proceeds separately
         bool fractionalized;
         uint256 sharePrice; // Price per share in wei
+        uint256 minPurchaseAmount; // NEW: Minimum shares per purchase
+        uint256 maxPurchaseAmount; // NEW: Maximum shares per purchase
     }
     
     // Mapping from propertyId to Property struct
@@ -57,6 +60,7 @@ contract TokenIT {
     
     event RentDeposited(
         uint256 indexed propertyId,
+        address indexed depositor,
         uint256 amount,
         uint256 newRentPool
     );
@@ -71,6 +75,13 @@ contract TokenIT {
         uint256 indexed propertyId,
         address indexed from,
         address indexed to,
+        uint256 amount
+    );
+    
+    // NEW: Event for share sale proceeds withdrawal
+    event ShareSaleProceedsWithdrawn(
+        uint256 indexed propertyId,
+        address indexed admin,
         uint256 amount
     );
     
@@ -102,38 +113,57 @@ contract TokenIT {
     }
     
     /**
-     * @dev Register a new property and fractionalize it in one transaction
-     * @param location Physical location of the property
-     * @param value Total value of the property in wei
-     * @param totalShares Number of shares to create
-     * @return propertyId The ID of the newly created property
+     * @dev Legacy function for backward compatibility - redirects to full version
      */
     function registerAndFractionalizeProperty(
         string memory location,
         uint256 value,
         uint256 totalShares
     ) external onlyOwner returns (uint256) {
+        return _registerAndFractionalizeProperty(location, value, totalShares, 1, 0);
+    }
+    
+    /**
+     * @dev Register a new property and fractionalize it in one transaction
+     * @param location Physical location of the property
+     * @param value Total value of the property in wei
+     * @param totalShares Number of shares to create
+     * @param minPurchase Minimum shares per purchase (0 for no minimum)
+     * @param maxPurchase Maximum shares per purchase (0 for no maximum)
+     * @return propertyId The ID of the newly created property
+     */
+    function registerAndFractionalizeProperty(
+        string memory location,
+        uint256 value,
+        uint256 totalShares,
+        uint256 minPurchase,
+        uint256 maxPurchase
+    ) external onlyOwner returns (uint256) {
+        return _registerAndFractionalizeProperty(location, value, totalShares, minPurchase, maxPurchase);
+    }
+    
+    /**
+     * @dev Internal function to register and fractionalize a property
+     */
+    function _registerAndFractionalizeProperty(
+        string memory location,
+        uint256 value,
+        uint256 totalShares,
+        uint256 minPurchase,
+        uint256 maxPurchase
+    ) internal onlyOwner returns (uint256) {
         require(totalShares > 0, "Total shares must be greater than zero");
         require(value > 0, "Value must be greater than zero");
-        
-        // Step 1: Register property in NFT contract
-        // Note: This requires TokenIT to be the owner of PropertyNFT
-        // For demo purposes, we assume proper ownership setup
-        
-        // Call PropertyNFT to register (this would need proper authorization)
-        // For now, we use a simplified approach where the admin calls both
+        require(minPurchase <= maxPurchase || maxPurchase == 0, "Invalid purchase limits");
         
         propertyCounter++;
         uint256 propertyId = propertyCounter;
         
-        // Note: In a real scenario, we'd call propertyNFT.registerProperty
-        // For this demo, we assume property NFT is registered separately
-        // and we just link to it here
-        
         // Calculate share price
         uint256 sharePrice = value / totalShares;
+        require(sharePrice > 0, "Share price must be greater than zero");
         
-        // Step 2: Deploy new PropertyShares token
+        // Step 1: Deploy new PropertyShares token
         string memory tokenName = string.concat("Property ", _uintToString(propertyId), " Shares");
         string memory tokenSymbol = string.concat("P", _uintToString(propertyId), "S");
         
@@ -145,15 +175,18 @@ contract TokenIT {
             propertyId
         );
         
-        // Step 3: Store property data
+        // Step 2: Store property data with new fields
         properties[propertyId] = Property({
             propertyId: propertyId,
             nftTokenId: 0, // Will be set separately when NFT is minted
             shareToken: address(shareToken),
             totalShares: totalShares,
             rentPool: 0,
+            shareSaleProceeds: 0, // Initialize to 0
             fractionalized: true,
-            sharePrice: sharePrice
+            sharePrice: sharePrice,
+            minPurchaseAmount: minPurchase,
+            maxPurchaseAmount: maxPurchase
         });
         
         emit PropertyFractionalized(
@@ -179,7 +212,7 @@ contract TokenIT {
     }
     
     /**
-     * @dev Buy shares of a property
+     * @dev Buy shares of a property with enhanced validation
      * @param propertyId The property to buy shares of
      * @param amount Number of shares to buy
      */
@@ -192,6 +225,16 @@ contract TokenIT {
         Property storage property = properties[propertyId];
         PropertyShares shareToken = PropertyShares(property.shareToken);
         
+        // NEW: Validate minimum purchase amount
+        if (property.minPurchaseAmount > 0) {
+            require(amount >= property.minPurchaseAmount, "Below minimum purchase amount");
+        }
+        
+        // NEW: Validate maximum purchase amount
+        if (property.maxPurchaseAmount > 0) {
+            require(amount <= property.maxPurchaseAmount, "Exceeds maximum purchase amount");
+        }
+        
         // Calculate cost
         uint256 cost = property.sharePrice * amount;
         require(msg.value >= cost, "Insufficient payment");
@@ -200,9 +243,19 @@ contract TokenIT {
         uint256 availableShares = shareToken.balanceOf(address(this));
         require(availableShares >= amount, "Not enough shares available");
         
+        // NEW: Prevent buying more than 50% of remaining shares in one transaction
+        // This prevents whale manipulation
+        uint256 maxAllowedInOnePurchase = (availableShares * 50) / 100;
+        if (maxAllowedInOnePurchase > 0) {
+            require(amount <= maxAllowedInOnePurchase, "Cannot buy more than 50% of available shares at once");
+        }
+        
         // Transfer shares from TokenIT to buyer
         bool success = shareToken.transfer(msg.sender, amount);
         require(success, "Share transfer failed");
+        
+        // NEW: Track share sale proceeds separately from rent
+        property.shareSaleProceeds += cost;
         
         // Refund excess payment
         if (msg.value > cost) {
@@ -224,7 +277,7 @@ contract TokenIT {
         Property storage property = properties[propertyId];
         property.rentPool += msg.value;
         
-        emit RentDeposited(propertyId, msg.value, property.rentPool);
+        emit RentDeposited(propertyId, msg.sender, msg.value, property.rentPool);
     }
     
     /**
@@ -258,6 +311,53 @@ contract TokenIT {
         payable(msg.sender).transfer(claimable);
         
         emit DividendsClaimed(propertyId, msg.sender, claimable);
+    }
+    
+    /**
+     * @dev NEW: Withdraw share sale proceeds (admin only)
+     * @param propertyId The property to withdraw proceeds from
+     * @param amount Amount to withdraw (in wei), 0 for all
+     */
+    function withdrawShareSaleProceeds(
+        uint256 propertyId,
+        uint256 amount
+    ) external onlyOwner propertyExists(propertyId) {
+        Property storage property = properties[propertyId];
+        
+        uint256 withdrawAmount = amount == 0 ? property.shareSaleProceeds : amount;
+        require(withdrawAmount > 0, "No proceeds to withdraw");
+        require(withdrawAmount <= property.shareSaleProceeds, "Insufficient proceeds");
+        
+        property.shareSaleProceeds -= withdrawAmount;
+        
+        payable(owner).transfer(withdrawAmount);
+        
+        emit ShareSaleProceedsWithdrawn(propertyId, msg.sender, withdrawAmount);
+    }
+    
+    /**
+     * @dev NEW: Get share sale proceeds for a property
+     * @param propertyId The property to query
+     * @return uint256 Amount of share sale proceeds available
+     */
+    function getShareSaleProceeds(uint256 propertyId) external view propertyExists(propertyId) returns (uint256) {
+        return properties[propertyId].shareSaleProceeds;
+    }
+    
+    /**
+     * @dev NEW: Update purchase limits for a property
+     * @param propertyId The property to update
+     * @param minPurchase New minimum purchase amount
+     * @param maxPurchase New maximum purchase amount
+     */
+    function setPurchaseLimits(
+        uint256 propertyId,
+        uint256 minPurchase,
+        uint256 maxPurchase
+    ) external onlyOwner propertyExists(propertyId) {
+        require(minPurchase <= maxPurchase || maxPurchase == 0, "Invalid purchase limits");
+        properties[propertyId].minPurchaseAmount = minPurchase;
+        properties[propertyId].maxPurchaseAmount = maxPurchase;
     }
     
     /**

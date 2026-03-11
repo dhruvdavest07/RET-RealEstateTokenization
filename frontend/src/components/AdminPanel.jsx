@@ -5,10 +5,18 @@ export function AdminPanel({
   isConnected, 
   account, 
   onDepositRent, 
+  onRegisterProperty,
+  onWithdrawProceeds,
   isLoading,
   checkIsAdmin 
 }) {
   const [rentAmount, setRentAmount] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [regLocation, setRegLocation] = useState('');
+  const [regValue, setRegValue] = useState('');
+  const [regShares, setRegShares] = useState('');
+  const [regMinPurchase, setRegMinPurchase] = useState('1');
+  const [regMaxPurchase, setRegMaxPurchase] = useState('0');
   const [isAdmin, setIsAdmin] = useState(false);
   const [txStatus, setTxStatus] = useState(null);
 
@@ -42,11 +50,105 @@ export function AdminPanel({
     );
   }
 
+  // If admin but no property is loaded, show registration form
   if (!property) {
+    const handleRegister = async () => {
+      if (!regLocation || !regValue || !regShares) return;
+      setTxStatus({ type: 'loading', message: 'Registering property...' });
+      try {
+        const valueWei = regValue; // Already in ETH, will be converted in App.jsx
+        const result = await onRegisterProperty(regLocation, valueWei, regShares, regMinPurchase, regMaxPurchase);
+        setTxStatus({ type: 'success', message: `Property created (ID: ${result.propertyId || '?'})` });
+        setRegLocation('');
+        setRegValue('');
+        setRegShares('');
+        setRegMinPurchase('1');
+        setRegMaxPurchase('0');
+        setTimeout(() => setTxStatus(null), 5000);
+      } catch (err) {
+        setTxStatus({ type: 'error', message: err.reason || err.message || 'Registration failed' });
+        setTimeout(() => setTxStatus(null), 5000);
+      }
+    };
+
     return (
-      <div className="card p-6">
-        <div className="text-center py-8 text-gray-500">
-          <p>Load a property to access admin features</p>
+      <div className="card p-6 border-2 border-blue-200">
+        <h3 className="text-lg font-semibold mb-4">Register New Property</h3>
+        {txStatus && (
+          <div className={`mb-4 p-3 rounded-lg text-sm ${
+            txStatus.type === 'success' ? 'bg-green-100 text-green-800' :
+            txStatus.type === 'error' ? 'bg-red-100 text-red-800' :
+            'bg-blue-100 text-blue-800'
+          }`}>
+            {txStatus.type === 'loading' && <span className="spinner border-current mr-2"></span>}
+            {txStatus.message}
+          </div>
+        )}
+        <div className="space-y-3">
+          <div>
+            <label className="label">Location</label>
+            <input
+              type="text"
+              value={regLocation}
+              onChange={(e) => setRegLocation(e.target.value)}
+              className="input w-full"
+              placeholder="123 Main St, City"
+            />
+          </div>
+          <div>
+            <label className="label">Value (ETH)</label>
+            <input
+              type="number"
+              step="0.001"
+              value={regValue}
+              onChange={(e) => setRegValue(e.target.value)}
+              className="input w-full"
+              placeholder="100"
+              min="0.001"
+            />
+          </div>
+          <div>
+            <label className="label">Total Shares</label>
+            <input
+              type="number"
+              value={regShares}
+              onChange={(e) => setRegShares(e.target.value)}
+              className="input w-full"
+              placeholder="1000"
+              min="1"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Min Purchase</label>
+              <input
+                type="number"
+                value={regMinPurchase}
+                onChange={(e) => setRegMinPurchase(e.target.value)}
+                className="input w-full"
+                placeholder="1"
+                min="1"
+              />
+            </div>
+            <div>
+              <label className="label">Max Purchase (0=unlimited)</label>
+              <input
+                type="number"
+                value={regMaxPurchase}
+                onChange={(e) => setRegMaxPurchase(e.target.value)}
+                className="input w-full"
+                placeholder="0"
+                min="0"
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleRegister}
+            disabled={!regLocation || !regValue || !regShares || isLoading}
+            className="btn btn-primary w-full"
+          >
+            Register &amp; Fractionalize
+          </button>
         </div>
       </div>
     );
@@ -64,6 +166,20 @@ export function AdminPanel({
       setTimeout(() => setTxStatus(null), 5000);
     } catch (err) {
       setTxStatus({ type: 'error', message: err.reason || err.message || 'Deposit failed' });
+      setTimeout(() => setTxStatus(null), 5000);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    setTxStatus({ type: 'loading', message: 'Withdrawing proceeds...' });
+
+    try {
+      const txHash = await onWithdrawProceeds(property.propertyId, withdrawAmount || '0');
+      setTxStatus({ type: 'success', message: `Proceeds withdrawn! Tx: ${txHash.slice(0, 10)}...` });
+      setWithdrawAmount('');
+      setTimeout(() => setTxStatus(null), 5000);
+    } catch (err) {
+      setTxStatus({ type: 'error', message: err.reason || err.message || 'Withdrawal failed' });
       setTimeout(() => setTxStatus(null), 5000);
     }
   };
@@ -151,6 +267,57 @@ export function AdminPanel({
         <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-xs text-yellow-800">
             <strong>Note:</strong> Deposited rent is distributed proportionally to all shareholders based on their ownership percentage.
+          </p>
+        </div>
+      </div>
+
+      {/* Share Sale Proceeds Section */}
+      <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+        <h4 className="font-medium text-gray-900 mb-3">Share Sale Proceeds</h4>
+        
+        <div className="space-y-3">
+          <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+            <span className="text-gray-600">Available to Withdraw:</span>
+            <span className="text-2xl font-bold text-green-600">{property.shareSaleProceeds || '0'} ETH</span>
+          </div>
+
+          <div>
+            <label className="label">Withdraw Amount (ETH) - Leave empty for all</label>
+            <input
+              type="number"
+              step="0.001"
+              value={withdrawAmount}
+              onChange={(e) => setWithdrawAmount(e.target.value)}
+              className="input"
+              placeholder="0 = withdraw all"
+              min="0"
+            />
+          </div>
+
+          <button
+            onClick={handleWithdraw}
+            disabled={parseFloat(property.shareSaleProceeds || 0) <= 0 || isLoading}
+            className="btn w-full bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+          >
+            {isLoading ? (
+              <>
+                <span className="spinner mr-2"></span>
+                Processing...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a1 1 0 11-2 0 1 1 0 012 0z" />
+                </svg>
+                Withdraw Proceeds
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="mt-3 p-3 bg-green-100 border border-green-200 rounded-lg">
+          <p className="text-xs text-green-800">
+            <strong>Note:</strong> Share sale proceeds come from investors buying shares. This is separate from the rent pool.
           </p>
         </div>
       </div>
