@@ -33,6 +33,7 @@ function App() {
     buyShares,
     claimDividends,
     depositRent,
+    transferShares,
     checkIsAdmin,
     registerProperty,
     withdrawShareSaleProceeds,
@@ -93,6 +94,12 @@ function App() {
   const handleClaimDividends = async (propId) => {
     const result = await claimDividends(propId);
     showToast('Dividends claimed successfully!', 'success');
+    return result;
+  };
+
+  const handleTransferShares = async (propId, to, amount) => {
+    const result = await transferShares(propId, to, amount);
+    showToast('Shares transferred successfully!', 'success');
     return result;
   };
 
@@ -213,6 +220,7 @@ function App() {
               isConnected={isConnected}
               onBuyShares={handleBuyShares}
               onClaimDividends={handleClaimDividends}
+              onTransferShares={handleTransferShares}
               isLoading={propertyLoading}
             />
 

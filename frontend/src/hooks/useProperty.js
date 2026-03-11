@@ -182,6 +182,29 @@ export function useProperty(contract, account) {
     }
   }, [contract, loadProperty]);
 
+  // Transfer shares to another address
+  const transferShares = useCallback(async (propertyId, to, amount) => {
+    if (!contract) throw new Error('Contract not initialized');
+
+    try {
+      console.log('Transferring shares:', { propertyId, to, amount });
+      
+      const tx = await contract.transferShares(propertyId, to, amount);
+      console.log('Transfer transaction sent:', tx.hash);
+      
+      await tx.wait();
+      console.log('Transfer transaction confirmed');
+      
+      // Reload data after transfer
+      await loadProperty(propertyId);
+      
+      return tx.hash;
+    } catch (err) {
+      console.error('Error transferring shares:', err);
+      throw err;
+    }
+  }, [contract, loadProperty]);
+
   // Check if connected account is admin
   const checkIsAdmin = useCallback(async () => {
     console.log("Checking admin status...");
@@ -292,6 +315,7 @@ export function useProperty(contract, account) {
     buyShares,
     claimDividends,
     depositRent,
+    transferShares,
     checkIsAdmin,
     registerProperty,
     withdrawShareSaleProceeds,
