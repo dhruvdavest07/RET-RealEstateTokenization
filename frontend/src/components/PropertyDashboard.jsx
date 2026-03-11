@@ -121,6 +121,12 @@ export function PropertyDashboard({ property, investorInfo, isLoading, onRefresh
         <p className="text-sm font-mono text-gray-800 break-all">{property.shareToken}</p>
       </div>
 
+      {/* Contract Balance - Debug info */}
+      <div className="bg-blue-50 rounded-lg p-4 mb-6 border border-blue-200">
+        <p className="text-xs text-blue-600 font-medium mb-1">Contract ETH Balance (Debug)</p>
+        <p className="text-lg font-mono text-blue-800">{property.contractBalance || '?'} ETH</p>
+      </div>
+
       {/* Share Sale Proceeds - Visible to all for transparency */}
       <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg p-4 mb-6 border border-emerald-200">
         <div className="flex justify-between items-center">

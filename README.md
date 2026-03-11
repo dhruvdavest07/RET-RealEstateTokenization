@@ -5,13 +5,16 @@ A blockchain-based Real Estate Investment Trust (REIT) platform that enables pro
 ## 📋 Table of Contents
 
 - [Overview](#overview)
+- [Features](#features)
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-- [Running the Project](#running-the-project)
+- [Quick Start](#quick-start)
+- [Detailed Setup Guide](#detailed-setup-guide)
+- [Property Creation](#property-creation)
+- [Usage Guide](#usage-guide)
 - [MetaMask Setup](#metamask-setup)
 - [Test Accounts](#test-accounts)
-- [Usage Guide](#usage-guide)
 - [Troubleshooting](#troubleshooting)
 - [Project Structure](#project-structure)
 
@@ -27,13 +30,32 @@ TokenIT allows users to:
 
 ---
 
+## ✨ Features
+
+### Core Features
+- 🏠 **Property Registration** - Register properties with location, value, and shares
+- 💰 **Fractional Ownership** - Buy shares of properties with ETH
+- 🏦 **Rent Distribution** - Admin deposits rent, investors claim dividends proportionally
+- 💵 **Share Sale Proceeds** - Admin can withdraw ETH from share sales (separate from rent)
+- 📊 **Purchase Limits** - Set min/max shares per purchase, 50% anti-whale protection
+- 🔄 **Share Transfers** - Transfer shares between investors
+
+### New Features (v2.0)
+- ✅ **Separate Rent Pool & Share Sale Proceeds** - Rent and share sales tracked separately
+- ✅ **Admin Withdrawal** - Withdraw share sale proceeds to admin wallet
+- ✅ **Purchase Validation** - Min/max purchase limits per property
+- ✅ **Anti-Whale Protection** - Cannot buy more than 50% of available shares at once
+- ✅ **Available Shares Display** - Real-time available shares tracking
+
+---
+
 ## 🏗️ Architecture
 
 ### Smart Contracts
 
 | Contract | Description |
 |----------|-------------|
-| `TokenIT.sol` | Main platform contract - manages properties, shares, and dividends |
+| `TokenIT.sol` | Main platform contract - manages properties, shares, dividends, and proceeds |
 | `PropertyNFT.sol` | ERC721 NFT contract representing physical properties |
 | `PropertyShares.sol` | ERC20 token contract for fractional property shares |
 
@@ -69,12 +91,16 @@ Before running the project, ensure you have:
 
 ## 📦 Installation
 
-### Step 1: Clone and Setup
+### Step 1: Clone the Repository
 
 ```bash
-# Navigate to project directory
+git clone https://github.com/dhruvdavest07/RET-RealEstateTokenization.git
 cd RET-RealEstateTokenization
+```
 
+### Step 2: Install Dependencies
+
+```bash
 # Install root dependencies (Hardhat + Smart Contracts)
 npm install
 
@@ -86,11 +112,39 @@ cd ..
 
 ---
 
-## 🚀 Running the Project
+## 🚀 Quick Start
 
-### Phase 1: Start the Blockchain (Terminal 1)
+Run these commands in **3 separate terminals**:
 
-Start the Hardhat local blockchain node:
+### Terminal 1: Start Blockchain
+```bash
+npm run node
+```
+
+### Terminal 2: Deploy Contracts
+```bash
+npm run deploy
+```
+
+### Terminal 3: Setup Demo & Start Frontend
+```bash
+# Setup demo with sample properties
+npx hardhat run scripts/setup-demo.js --network localhost
+
+# Start frontend
+cd frontend
+npm run dev
+```
+
+**Open browser:** http://localhost:5173 (or http://localhost:3003 if 5173 is taken)
+
+---
+
+## 📖 Detailed Setup Guide
+
+### Step 1: Start the Local Blockchain
+
+Open **Terminal 1** and run:
 
 ```bash
 npm run node
@@ -104,19 +158,18 @@ Accounts
 ========
 Account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (10000 ETH)
 Account #1: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 (10000 ETH)
-Account #2: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC (10000 ETH)
-Account #3: 0x90F79bf6EB2c4f870365E785982E1f101E93b906 (10000 ETH)
 ...
 ```
 
 > ⚠️ **Important**: Keep this terminal running! This is your local blockchain.
 
-### Phase 2: Deploy Contracts (Terminal 2)
+---
 
-In a new terminal, deploy the smart contracts:
+### Step 2: Deploy Smart Contracts
+
+Open **Terminal 2** and run:
 
 ```bash
-# Deploy contracts to local network
 npm run deploy
 ```
 
@@ -126,70 +179,205 @@ npm run deploy
      TokenIT Contract Deployment
 ==========================================
 
-Deploying contracts with account: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-Account balance: 10000.0 ETH
-
-------------------------------------------
-Step 1: Deploying PropertyNFT contract...
-------------------------------------------
 ✅ PropertyNFT deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
-
-------------------------------------------
-Step 2: Deploying TokenIT contract...
-------------------------------------------
-✅ TokenIT deployed to: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
-
-==========================================
-     Deployment Summary
-==========================================
-PropertyNFT: 0x5FbDB2315678afecb367f032d93F642f64180aa3
-TokenIT:     0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+✅ TokenIT deployed to:     0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
 ```
 
-### Phase 3: Run Demo (Optional)
+> 📝 **Note**: Copy these addresses - you'll need them if the frontend config doesn't match.
 
-To populate the platform with sample data:
+---
+
+### Step 3: Setup MetaMask
+
+1. **Add Hardhat Network:**
+   - Open MetaMask → Click network dropdown → "Add network" → "Add manually"
+   - Network Name: `Hardhat Local`
+   - RPC URL: `http://127.0.0.1:8545`
+   - Chain ID: `31337`
+   - Currency Symbol: `ETH`
+
+2. **Import Admin Account:**
+   - Click account icon → "Import account"
+   - Private Key: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+   - Rename to "Admin"
+
+---
+
+### Step 4: Create Demo Properties (Optional but Recommended)
+
+Open **Terminal 3** and run:
 
 ```bash
-npm run demo
+npx hardhat run scripts/setup-demo.js --network localhost
 ```
 
 This creates:
-- 1 tokenized property (1000 shares, 100 ETH value)
-- 2 investors with purchased shares
-- Rental income deposited
-- Dividends claimed
+- **Property #1**: Luxury Apartment in NYC (1000 shares, 0.1 ETH each)
+- **Property #2**: Office Building in Chicago (2500 shares, 0.1 ETH each)
+- Pre-populates with investor share purchases
+- Deposits sample rent
 
-### Phase 4: Start Frontend (Terminal 3)
+---
 
-In another terminal, start the React frontend:
+### Step 5: Start Frontend
+
+In **Terminal 3**:
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-**Expected Output:**
-```
-  VITE v5.x.x  ready in xxx ms
+Open browser: **http://localhost:5173**
 
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: use --host to expose
-  ➜  press h + enter to show help
+---
+
+## 🏠 Property Creation
+
+### Method 1: Via Web Interface (Admin Only)
+
+1. **Connect Admin Wallet**
+   - Open http://localhost:5173
+   - Click "Connect Wallet"
+   - Select Admin account in MetaMask
+
+2. **No Property Loaded State**
+   - Clear Property ID field or set to non-existent property
+   - Admin Panel shows "Register New Property" form
+
+3. **Fill Property Details:**
+   | Field | Example Value | Description |
+   |-------|---------------|-------------|
+   | Location | `123 Park Avenue, New York` | Property address |
+   | Value (ETH) | `100` | Total property value |
+   | Total Shares | `1000` | Number of shares to create |
+   | Min Purchase | `10` | Minimum shares per purchase |
+   | Max Purchase | `200` | Maximum shares per purchase (0 = unlimited) |
+
+4. **Click "Register & Fractionalize"**
+   - Confirm transaction in MetaMask
+   - New property ID will be displayed
+   - Property automatically loads
+
+---
+
+### Method 2: Via Script (Admin Only)
+
+Create a new file `scripts/create-my-property.js`:
+
+```javascript
+const hre = require("hardhat");
+
+async function main() {
+  const { ethers } = hre;
+  
+  // Use deployed contract address
+  const tokenITAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+  
+  const TokenIT = await ethers.getContractFactory("TokenIT");
+  const tokenIT = TokenIT.attach(tokenITAddress);
+
+  console.log("Creating new property...");
+
+  // Create property with purchase limits
+  const tx = await tokenIT['registerAndFractionalizeProperty(string,uint256,uint256,uint256,uint256)'](
+    "789 Ocean Drive, Miami, FL",  // Location
+    ethers.utils.parseEther("150"), // Value: 150 ETH
+    1500,                           // Total Shares
+    15,                             // Min Purchase: 15 shares
+    300                             // Max Purchase: 300 shares
+  );
+  
+  const receipt = await tx.wait();
+  
+  // Get property ID from event
+  const event = receipt.logs.find(log => {
+    try {
+      const parsed = tokenIT.interface.parseLog(log);
+      return parsed && parsed.name === "PropertyFractionalized";
+    } catch (e) { return false; }
+  });
+  
+  if (event) {
+    const parsed = tokenIT.interface.parseLog(event);
+    const propertyId = parsed.args.propertyId.toString();
+    console.log(`✅ Property #${propertyId} created!`);
+    console.log(`   Share Price: ${ethers.utils.formatEther(parsed.args.sharePrice)} ETH`);
+  }
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 ```
 
-Open your browser and navigate to: **http://localhost:5173/**
+Run the script:
+```bash
+npx hardhat run scripts/create-my-property.js --network localhost
+```
+
+---
+
+## 🎮 Usage Guide
+
+### As Admin (Account #0)
+
+#### 1. View Property Details
+- Enter Property ID (e.g., "1") 
+- Click "Load Property"
+- View: Total Shares, Available Shares, Rent Pool, Share Sale Proceeds
+
+#### 2. Deposit Rent
+1. In Admin Panel, find "Deposit Rental Income" section
+2. Enter amount (e.g., "10" for 10 ETH)
+3. Click "Deposit Rent"
+4. Confirm in MetaMask
+5. Rent is distributed proportionally to shareholders
+
+#### 3. Withdraw Share Sale Proceeds
+1. In Admin Panel, find "Share Sale Proceeds" section (green)
+2. View "Available to Withdraw" amount
+3. Enter amount to withdraw (leave empty for all)
+4. Click "Withdraw Proceeds"
+5. ETH is transferred to admin wallet
+
+> 💡 **Note**: Share sale proceeds come from investors buying shares. This is separate from the rent pool.
+
+---
+
+### As Investor (Account #1 or #2)
+
+#### 1. Buy Shares
+1. Switch to Investor account in MetaMask
+2. Load a property (e.g., Property ID "1")
+3. In "Investor Actions" panel:
+   - View available shares
+   - Check min/max purchase limits
+   - Enter number of shares
+   - View total cost (auto-calculated)
+4. Click "Buy Shares"
+5. Confirm transaction in MetaMask
+
+#### 2. Claim Dividends
+1. After admin deposits rent, check "Pending Dividends"
+2. Click "Claim Dividends"
+3. ETH is transferred to your wallet
+
+> 💡 **Note**: Dividends = (Your Shares / Total Shares) × Rent Pool
 
 ---
 
 ## 🦊 MetaMask Setup
 
-### Step 1: Add Hardhat Network to MetaMask
+### Add Hardhat Network
 
 1. Open MetaMask extension
-2. Click the network dropdown (top of the popup)
+2. Click network dropdown (top of popup)
 3. Click **"Add network"** → **"Add a network manually"**
-4. Enter these details:
+4. Enter:
 
 | Field | Value |
 |-------|-------|
@@ -201,81 +389,20 @@ Open your browser and navigate to: **http://localhost:5173/**
 
 5. Click **Save**
 
-### Step 2: Import Test Accounts
-
-Import these accounts using their **Private Keys**:
-
-#### Account #0 - Admin (Platform Owner)
-- **Address**: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
-- **Private Key**: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
-- **Role**: Deploy contracts, create properties, deposit rent
-- **Balance**: 10,000 ETH
-
-#### Account #1 - Investor 1
-- **Address**: `0x70997970C51812dc3A010C7d01b50e0d17dc79C8`
-- **Private Key**: `0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d`
-- **Role**: Buy shares, claim dividends
-- **Balance**: 10,000 ETH
-
-#### Account #2 - Investor 2
-- **Address**: `0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC`
-- **Private Key**: `0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a`
-- **Role**: Buy shares, claim dividends
-- **Balance**: 10,000 ETH
-
-#### Account #3 - Investor 3
-- **Address**: `0x90F79bf6EB2c4f870365E785982E1f101E93b906`
-- **Private Key**: `0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6`
-- **Role**: Receive transferred shares
-- **Balance**: 10,000 ETH
-
-### How to Import an Account:
-
-1. Click the **account icon** (top right in MetaMask)
-2. Select **"Import account"**
-3. Paste the **Private Key**
-4. Click **Import**
-5. Rename the account (e.g., "Admin", "Investor 1")
-
----
-
-## 📝 Test Accounts Summary
+### Import Test Accounts
 
 | Account | Address | Private Key | Purpose |
 |---------|---------|-------------|---------|
-| #0 | 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 | 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 | Admin/Deployer |
-| #1 | 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 | 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d | Investor 1 |
-| #2 | 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC | 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a | Investor 2 |
-| #3 | 0x90F79bf6EB2c4f870365E785982E1f101E93b906 | 0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6 | Investor 3 |
+| **Admin** | `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` | `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80` | Deploy/Create properties |
+| **Investor 1** | `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` | `0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d` | Buy shares/Claim dividends |
+| **Investor 2** | `0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC` | `0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a` | Buy shares/Claim dividends |
+| **Investor 3** | `0x90F79bf6EB2c4f870365E785982E1f101E93b906` | `0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6` | Receive transfers |
 
----
-
-## 🎮 Usage Guide
-
-### As Admin (Account #0)
-
-1. **Connect Wallet**: Open http://localhost:5173/ and click "Connect Wallet"
-2. **Create Property**: 
-   - Go to "Admin Panel"
-   - Enter location (e.g., "123 Main St, New York")
-   - Enter value (e.g., "100" for 100 ETH)
-   - Enter total shares (e.g., "1000")
-   - Click "Register & Fractionalize"
-3. **Deposit Rent**:
-   - Enter property ID
-   - Enter rent amount (e.g., "10" for 10 ETH)
-   - Click "Deposit Rent"
-
-### As Investor (Account #1 or #2)
-
-1. **Switch Account**: In MetaMask, switch to Investor account
-2. **Buy Shares**:
-   - View available properties on dashboard
-   - Enter property ID and amount of shares
-   - Click "Buy Shares"
-3. **Claim Dividends**:
-   - After rent is deposited, click "Claim Dividends"
-   - ETH will be sent to your wallet
+**How to Import:**
+1. Click account icon (top right) → "Import account"
+2. Paste Private Key
+3. Click Import
+4. Rename account (e.g., "Admin", "Investor 1")
 
 ---
 
@@ -288,7 +415,7 @@ Import these accounts using their **Private Keys**:
 | `npm run demo` | Run full demo with sample data |
 | `npm run compile` | Compile smart contracts |
 | `npm run test` | Run contract tests |
-| `npm run create-property` | Create a property via script |
+| `npx hardhat run scripts/setup-demo.js --network localhost` | Setup demo properties |
 | `cd frontend && npm run dev` | Start React frontend |
 | `cd frontend && npm run build` | Build for production |
 
@@ -297,45 +424,44 @@ Import these accounts using their **Private Keys**:
 ## 🐛 Troubleshooting
 
 ### Issue: "MetaMask is not installed"
-**Solution**: Install MetaMask extension for your browser and refresh the page.
+**Solution**: Install MetaMask extension and refresh the page.
 
 ### Issue: "Failed to connect to wallet"
 **Solution**: 
-- Ensure you're on the Hardhat Local network in MetaMask
-- Check that the Hardhat node is running (`npm run node`)
-- Try refreshing the page
+- Ensure you're on Hardhat Local network
+- Check Hardhat node is running (`npm run node`)
+- Refresh the page
 
-### Issue: "Network mismatch"
+### Issue: "No contract found at 0x..."
 **Solution**: 
-- In MetaMask, switch to the Hardhat Local network (Chain ID: 31337)
-- If prompted, add the network (see [MetaMask Setup](#metamask-setup))
+- Hardhat node was reset - contracts lost
+- Re-run: `npm run deploy`
+- Update `frontend/src/contracts/config.js` with new addresses
 
-### Issue: "Insufficient funds"
+### Issue: "Dividends show 0 but rent was deposited"
 **Solution**: 
-- Make sure you're using a test account from Hardhat
-- The Hardhat node must be running to have the prefunded accounts
+- You may have already claimed
+- Check `claimedDividends` in contract
+- Another investor may have claimed before you
 
-### Issue: "Contract not deployed"
+### Issue: "Withdraw proceeds doesn't add ETH to wallet"
 **Solution**: 
-- Run `npm run deploy` to deploy contracts
-- Check that the contract addresses in `frontend/src/contracts/config.js` match the deployed addresses
+- Check browser console for errors
+- Verify you're using Admin account
+- Ensure contract has ETH balance
+- Refresh page after transaction
 
 ### Issue: "Nonce too high" or transaction errors
 **Solution**: 
-- In MetaMask, go to Settings → Advanced → Clear Activity Tab Data
-- Or reset your MetaMask account for the Hardhat network
+- MetaMask → Settings → Advanced → Clear Activity Tab Data
+- Or reset MetaMask account for Hardhat network
 
-### Issue: Frontend shows "Error: could not detect network"
-**Solution**: 
-- Ensure Hardhat node is running (`npm run node`)
-- Check if the RPC URL in MetaMask is `http://127.0.0.1:8545`
-- Try restarting the Hardhat node
-
-### Issue: Cannot buy shares / transaction fails
+### Issue: "Cannot buy shares - transaction fails"
 **Solution**:
-- Check that you're sending enough ETH (share price × amount)
-- Verify the property is fractionalized
-- Check browser console for detailed error messages
+- Check you're sending enough ETH (share price × amount)
+- Verify purchase is within min/max limits
+- Cannot buy more than 50% of available shares at once
+- Check browser console for error details
 
 ---
 
@@ -351,40 +477,65 @@ RET-RealEstateTokenization/
 ├── scripts/                 # Deployment & utility scripts
 │   ├── deploy.js           # Deploy contracts
 │   ├── demo.js             # Run demo scenario
-│   ├── create-property.js  # Create property script
+│   ├── setup-demo.js       # Setup demo properties
+│   ├── create-property.js  # Interactive property creation
 │   └── check-contract.js   # Verify contract state
 ├── frontend/                # React frontend application
 │   ├── src/
 │   │   ├── components/     # React components
+│   │   │   ├── AdminPanel.jsx
+│   │   │   ├── InvestorActions.jsx
+│   │   │   ├── PropertyDashboard.jsx
+│   │   │   └── Header.jsx
 │   │   ├── contracts/      # Contract ABIs & config
+│   │   │   └── config.js
 │   │   ├── hooks/          # Custom React hooks
+│   │   │   └── useProperty.js
 │   │   └── App.jsx         # Main app component
 │   └── package.json
 ├── test/                    # Contract test files
 ├── hardhat.config.js        # Hardhat configuration
-└── package.json             # Root package.json
+├── package.json             # Root package.json
+└── README.md                # This file
 ```
 
 ---
 
-## 🔄 Workflow Diagram
+## 🔄 Money Flow Diagram
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│   Admin     │────▶│  TokenIT     │────▶│ Property    │
-│  (Account)  │     │  Contract    │     │  Shares     │
-└─────────────┘     └──────────────┘     └─────────────┘
-       │                    │                    │
-       │ Register           │ Mint Shares        │ Sell
-       │ Property           │                    │ Shares
-       ▼                    ▼                    ▼
-┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│  Property   │     │  Investors   │◀────│   Investor  │
-│    NFT      │     │  (Dividends) │     │  (Account)  │
-└─────────────┘     └──────────────┘     └─────────────┘
-       ▲                                           │
-       │                                           │
-       └────────── Rent Deposit ◀──────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                     ADMIN CREATES PROPERTY                          │
+│  Location: "123 Main St" | Value: 100 ETH | Shares: 1000           │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        INVESTOR BUYS SHARES                         │
+│  100 Shares × 0.1 ETH = 10 ETH → TokenIT Contract                   │
+│  • 10 ETH added to shareSaleProceeds (admin withdrawable)          │
+│  • 100 shares transferred to investor                               │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        ADMIN DEPOSITS RENT                          │
+│  10 ETH → TokenIT Contract                                          │
+│  • 10 ETH added to rentPool (investor dividends)                   │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      INVESTOR CLAIMS DIVIDENDS                      │
+│  (100 shares / 1000 total) × 10 ETH rent = 1 ETH dividend          │
+│  • 1 ETH transferred to investor wallet                             │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     ADMIN WITHDRAWS PROCEEDS                        │
+│  10 ETH from shareSaleProceeds → Admin wallet                       │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -393,8 +544,9 @@ RET-RealEstateTokenization/
 
 For issues or questions:
 1. Check the [Troubleshooting](#troubleshooting) section
-2. Review the console logs in browser and terminal
+2. Review console logs in browser (F12 → Console) and terminal
 3. Ensure all prerequisites are met
+4. Verify contract addresses match in `frontend/src/contracts/config.js`
 
 ---
 

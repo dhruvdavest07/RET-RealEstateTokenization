@@ -51,6 +51,12 @@ export function useProperty(contract, account) {
       );
       const availableShares = await shareTokenContract.getAvailableShares();
       
+      // Get actual contract ETH balance for debugging
+      const contractBalance = await contract.provider.getBalance(contract.address);
+      console.log('Contract ETH balance:', ethers.utils.formatEther(contractBalance), 'ETH');
+      console.log('Rent Pool:', ethers.utils.formatEther(propertyData.rentPool), 'ETH');
+      console.log('Share Sale Proceeds:', ethers.utils.formatEther(propertyData.shareSaleProceeds || 0), 'ETH');
+      
       setProperty({
         propertyId: propertyData.propertyId.toString(),
         nftTokenId: propertyData.nftTokenId.toString(),
@@ -59,6 +65,7 @@ export function useProperty(contract, account) {
         availableShares: availableShares.toString(),
         shareSaleProceeds: ethers.utils.formatEther(propertyData.shareSaleProceeds || 0),
         rentPool: ethers.utils.formatEther(propertyData.rentPool),
+        contractBalance: ethers.utils.formatEther(contractBalance),
         fractionalized: propertyData.fractionalized,
         sharePrice: ethers.utils.formatEther(propertyData.sharePrice),
         minPurchaseAmount: propertyData.minPurchaseAmount?.toString() || '1',
@@ -129,8 +136,18 @@ export function useProperty(contract, account) {
     if (!contract) throw new Error('Contract not initialized');
 
     try {
+      // Check pending dividends before claiming
+      const pendingBefore = await contract.getPendingDividends(propertyId, account);
+      console.log('Pending dividends before claim:', ethers.utils.formatEther(pendingBefore), 'ETH');
+      
+      if (pendingBefore.eq(0)) {
+        throw new Error('No dividends available to claim');
+      }
+      
       const tx = await contract.claimDividends(propertyId);
+      console.log('Claim transaction sent:', tx.hash);
       await tx.wait();
+      console.log('Claim transaction confirmed');
       
       // Reload data after claim
       await loadProperty(propertyId);
@@ -140,7 +157,7 @@ export function useProperty(contract, account) {
       console.error('Error claiming dividends:', err);
       throw err;
     }
-  }, [contract, loadProperty]);
+  }, [contract, loadProperty, account]);
 
   // Deposit rent (admin only)
   const depositRent = useCallback(async (propertyId, amount) => {
@@ -224,12 +241,39 @@ export function useProperty(contract, account) {
     if (!contract) throw new Error('Contract not initialized');
 
     try {
-      const amountWei = amount === '0' ? '0' : ethers.utils.parseEther(amount);
+      // Get proceeds before withdrawal for logging
+      const proceedsBefore = await contract.getShareSaleProceeds(propertyId);
+      console.log('Share sale proceeds before:', ethers.utils.formatEther(proceedsBefore), 'ETH');
+      
+      // If amount is '0' or empty, pass 0 to withdraw all proceeds
+      const amountWei = (amount === '0' || !amount || parseFloat(amount) === 0) 
+        ? ethers.BigNumber.from(0) 
+        : ethers.utils.parseEther(amount);
+      console.log('Withdrawing proceeds:', { propertyId, amountWei: amountWei.toString() });
+      
       const tx = await contract.withdrawShareSaleProceeds(propertyId, amountWei);
-      await tx.wait();
+      console.log('Transaction sent:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('Transaction confirmed, gas used:', receipt.gasUsed.toString());
+      
+      // Parse event to get withdrawn amount
+      const event = receipt.logs.find(log => {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          return parsed && parsed.name === 'ShareSaleProceedsWithdrawn';
+        } catch (e) { return false; }
+      });
+      if (event) {
+        const parsed = contract.interface.parseLog(event);
+        console.log('Withdrawn amount:', ethers.utils.formatEther(parsed.args.amount), 'ETH');
+      }
       
       // Reload data after withdrawal
       await loadProperty(propertyId);
+      
+      // Get proceeds after
+      const proceedsAfter = await contract.getShareSaleProceeds(propertyId);
+      console.log('Share sale proceeds after:', ethers.utils.formatEther(proceedsAfter), 'ETH');
       
       return tx.hash;
     } catch (err) {
