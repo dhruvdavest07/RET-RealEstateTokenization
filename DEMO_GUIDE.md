@@ -63,15 +63,24 @@ Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 npm run deploy
 ```
 
-Note down the two addresses printed:
+Note down the **three** addresses printed:
 ```
-✅ PropertyNFT deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
-✅ TokenIT deployed to:     0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+✅ PropertyNFT deployed to:  0x5FbDB2315678afecb367f032d93F642f64180aa3
+✅ TokenIT deployed to:      0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+✅ Marketplace deployed to:  0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
 ```
 
-These addresses are pre-set in `frontend/src/contracts/config.js`. As long as you start the node fresh (no prior deploys in this session), the addresses will always be the same and you do not need to update `config.js`.
+The deploy script also prints a ready-to-paste config block:
+```
+Update frontend/src/contracts/config.js:
+  TOKEN_IT:    "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+  PROPERTY_NFT:"0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  MARKETPLACE: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+```
 
-> **If addresses don't match** `config.js`: Open `frontend/src/contracts/config.js` and update `TOKEN_IT` and `PROPERTY_NFT` with the new addresses.
+As long as you start the node fresh (no prior deploys in this session), `TOKEN_IT` and `PROPERTY_NFT` addresses will always be the same — only `MARKETPLACE` varies.
+
+> **If addresses don't match** `config.js`: Open `frontend/src/contracts/config.js` and update all three addresses in the `CONTRACT_ADDRESSES` object.
 
 ---
 
@@ -271,7 +280,7 @@ These are pre-funded Hardhat test accounts. **Do not use on mainnet.**
 
 ## Demo Script
 
-Follow this sequence for a clean end-to-end demo.
+Follow this sequence for a clean end-to-end demo. Steps 1–5 are core; Steps 6–9 demonstrate Phase 2 & 3 features.
 
 ### Step 1 — Admin creates a property
 
@@ -330,6 +339,61 @@ Example: Investor with 100/1000 shares gets `(100/1000) × 10 = 1 ETH`
 
 ---
 
+### Step 6 — Phase 2: KYC Whitelist demo
+
+1. Admin Panel → "KYC Whitelist" (collapsible)
+2. Toggle the switch to **ON** → confirm MetaMask → whitelist enabled
+3. Switch to Investor 1 — try to buy shares → blocked with "KYC required" banner
+4. Switch back to Admin → "Whitelist all 3 demo investors" → confirm
+5. Switch to Investor 1 — green "KYC approved" banner appears → buy works again
+6. Toggle whitelist back **OFF** when done to unblock demo flow
+
+---
+
+### Step 7 — Phase 2: Property Valuation Update demo
+
+1. Admin Panel → "Update Property Value" (collapsible)
+2. Enter new value e.g. `150` (property appreciated)
+3. Preview shows new share price: `150 / 1000 = 0.15 ETH`
+4. Click **Update Value** → confirm MetaMask
+5. Property Dashboard share price updates — existing holdings are now worth more
+
+---
+
+### Step 8 — Phase 2: DRIP Reinvestment demo
+
+1. After Step 3 (rent deposited), switch to Investor 1
+2. Load Property #1 — "Claim Dividends" section shows pending dividends
+3. Below the Claim button: DRIP preview appears → "Your X ETH would buy Y shares"
+4. Click **Reinvest → Y shares** → confirm MetaMask
+5. Investor's share count increases, ETH stays in contract
+
+---
+
+### Step 9 — Phase 3: Secondary Market demo
+
+1. Switch to Investor 1 (owns shares)
+2. Click **Secondary Market** tab in navigation
+3. Go to **Sell Shares** tab → enter Property ID `1`, e.g. `50` shares, price `0.12` ETH
+4. Click **Approve & List Shares** → MetaMask prompts approval then listing (2 txs)
+5. Switch to Investor 2 → go to Secondary Market → **Browse** tab
+6. See Investor 1's listing — click **Buy** → confirm MetaMask
+7. Investor 2 now owns those 50 shares at the custom price
+
+---
+
+### Step 10 — Phase 3: Property Sale / Exit demo
+
+1. Switch to Admin → load Property #1
+2. Admin Panel → "Initiate Property Sale" (red collapsible)
+3. Enter sale price e.g. `120` ETH → click **Confirm Property Sale** → confirm dialog → MetaMask
+4. Property dashboard shows **SOLD** badge + sale proceeds banner
+5. Switch to Investor 1 → load Property #1
+6. "Buy Shares" section replaced by "Claim Sale Proceeds" showing exact payout
+7. Click **Redeem Shares for Sale Proceeds** → shares burned, ETH transferred
+
+---
+
 ## Troubleshooting
 
 ### "No contract found at address"
@@ -337,7 +401,10 @@ The Hardhat node was restarted and contracts were lost.
 ```bash
 npm run deploy
 ```
-If addresses changed, update `frontend/src/contracts/config.js`.
+Update all three addresses (`TOKEN_IT`, `PROPERTY_NFT`, `MARKETPLACE`) in `frontend/src/contracts/config.js`.
+
+### Secondary Market tab shows "Marketplace not deployed"
+The `MARKETPLACE` address in `config.js` is still the zero address placeholder. Run `npm run deploy` and copy the Marketplace address into `config.js`.
 
 ### "Nonce too high" / transaction fails in MetaMask
 MetaMask cached old nonce from a previous session.
@@ -364,3 +431,12 @@ Restart the ngrok command. You will get a new URL — update `config.js` and sen
 - Anti-whale limit: cannot buy more than 50% of available shares in one transaction
 - Max purchase limit set during property creation
 - Split into multiple transactions if needed
+
+### "Approve Marketplace to transfer your shares first" when listing
+The Marketplace listing flow handles approval automatically — click "Approve & List Shares" and approve **both** MetaMask transactions (first is ERC20 approval, second is the listing).
+
+### Can't buy shares after property sale was initiated
+This is expected. Once admin initiates a property sale, `fractionalized` is set to false. Use "Claim Sale Proceeds" instead to redeem your shares.
+
+### DRIP reinvest button doesn't appear
+DRIP only shows when you have both shares AND pending dividends AND the dividend amount is large enough to purchase at least one share (dividends ≥ share price). Deposit more rent to trigger it.

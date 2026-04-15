@@ -81,11 +81,11 @@ All three contracts compile to **EVM bytecode** and run on the EVM:
 
 ## 2. Smart Contract Coding — Evaluation (30%)
 
-### The Three Contracts
+### The Four Contracts
 
 #### `TokenIT.sol` — Main Platform Contract
 
-**Purpose**: The orchestrator. Manages all property logic, share sales, rent pools, dividend distribution, and proceeds.
+**Purpose**: The orchestrator. Manages all property logic, share sales, rent pools, dividend distribution, proceeds, KYC whitelist, valuation updates, DRIP reinvestment, and property sale/exit.
 
 **Key state variables:**
 ```solidity
@@ -93,6 +93,10 @@ mapping(uint256 => Property) public properties;
 mapping(uint256 => mapping(address => uint256)) public claimedDividends;
 uint256 public propertyCounter;
 address public owner;
+// Phase 2
+mapping(address => bool) public whitelisted;
+bool public whitelistEnabled;
+// Phase 3: sold/saleProceeds are fields inside the Property struct
 ```
 
 **Key functions and their logic:**
@@ -100,11 +104,20 @@ address public owner;
 | Function | Access | What it does |
 |----------|--------|-------------|
 | `registerAndFractionalizeProperty` | `onlyOwner` | Creates property, deploys new ERC20 share token, sets share price = value / totalShares |
-| `buyShares` | public, `payable` | Validates min/max/50% limits, transfers shares, tracks proceeds, refunds excess ETH |
+| `buyShares` | public + `onlyWhitelisted`, `payable` | Validates min/max/50% limits and not-sold, transfers shares, tracks proceeds, refunds excess ETH |
 | `depositRent` | public, `payable` | Adds ETH to rentPool for a property |
-| `claimDividends` | public | Calculates entitlement = (shares/totalShares) × rentPool, pays claimable = entitlement − alreadyClaimed |
+| `claimDividends` | public | Calculates entitlement = (shares/totalShares) × rentPool, pays claimable = entitlement − alreadyClaimed. Works even after property sale |
+| `reinvestDividends` | public | DRIP: converts claimable dividends to shares; ETH stays in contract as shareSaleProceeds |
 | `withdrawShareSaleProceeds` | `onlyOwner` | Withdraws ETH from shareSaleProceeds to owner wallet |
-| `transferShares` | public | Wraps ERC20 `transferFrom` for convenience |
+| `transferShares` | public | Uses `transferOnBehalf` — no ERC20 approval needed from investor |
+| `updatePropertyValue` | `onlyOwner` | Recalculates sharePrice = newValue / totalShares |
+| `setWhitelistEnabled` | `onlyOwner` | Toggles KYC requirement for share purchases |
+| `addToWhitelist` / `removeFromWhitelist` | `onlyOwner` | Single address KYC management |
+| `addBatchToWhitelist` | `onlyOwner` | Batch KYC approval |
+| `initiatePropertySale` | `onlyOwner`, `payable` | Marks property as sold, locks share purchases, stores sale proceeds ETH |
+| `claimSaleProceeds` | public | Investor redeems shares for proportional sale payout; shares are burned via `burnShares` |
+| `getPropertyShareToken` | view | Returns (shareTokenAddress, sold) — used by Marketplace contract |
+| `previewReinvestment` | view | Returns (dividendAmount, sharesWouldReceive) for DRIP UI preview |
 | `getPendingDividends` | view | Read-only entitlement calculation |
 | `getInvestorInfo` | view | Returns shares, ownership %, pending dividends in one call |
 
@@ -118,14 +131,23 @@ claimable = totalEntitlement - alreadyClaimed[propertyId][investor]
 
 When rent is deposited again, `rentPool` grows, so `totalEntitlement` grows, and the investor can claim the delta. This avoids iterating over all investors.
 
+**Property Sale payout calculation:**
+```
+payout = (sharesOwned × saleProceeds) / totalShares
+```
+`totalShares` is the original fixed total — denominator never changes. Shares are burned on redemption via `PropertyShares.burnShares`.
+
 **Edge cases handled:**
 - `amount = 0` → `require(amount > 0)` in buyShares and transferShares
 - Excess ETH sent → refunded: `if (msg.value > cost) payable(msg.sender).transfer(msg.value - cost)`
 - No dividends to claim → `require(totalEntitlement > alreadyClaimed)`
 - Buying all shares → 50% anti-whale: `require(amount <= (availableShares * 50) / 100)`
+- Buying after property sold → `require(!property.sold)` in buyShares
 - Invalid purchase limits → `require(minPurchase <= maxPurchase || maxPurchase == 0)`
 - Zero address transfer → `require(to != address(0))`
 - Zero share price → `require(sharePrice > 0)` after division
+- DRIP dividend too small → `require(sharesToReceive > 0, "Dividend too small to buy even one share")`
+- Double-selling property → `require(!property.sold, "Property already sold")`
 
 ---
 
@@ -154,7 +176,22 @@ When rent is deposited again, `rentPool` grows, so `totalEntitlement` grows, and
 - All shares minted to `TokenIT` contract at creation; distributed to investors via `transfer`
 - `getAvailableShares()` = `balanceOf(tokenIT)` — shares still unsold
 - Overrides `transfer` and `transferFrom` to emit a custom `SharesTransferred` event
-- No mint/burn functions — supply is fixed forever
+- `transferOnBehalf(from, to, amount)` — TokenIT-only helper that calls `_transfer` directly; allows `TokenIT.transferShares` to work without requiring the investor to pre-approve the contract
+- `burnShares(from, amount)` — TokenIT-only helper that calls `_burn`; used by `claimSaleProceeds` to destroy redeemed shares without an ERC20 approval step
+
+#### `Marketplace.sol` — Secondary Market Contract (Phase 3)
+
+**Purpose**: Peer-to-peer trading of PropertyShares between investors at custom prices, independent of the original share price.
+
+**Key design:**
+- Seller calls `createListing(propertyId, shares, pricePerShare)` — requires ERC20 `approve(marketplace, shares)` first
+- Buyer calls `buyListing(listingId)` with exact ETH — Marketplace calls `transferFrom(seller, buyer, shares)` and pays seller
+- Seller calls `cancelListing(listingId)` to withdraw without penalty
+- `getActiveListings(propertyId)` and `getAllActiveListings()` for UI queries
+- Cannot list shares for a sold property (`require(!sold)`)
+- **CEI pattern**: listing deactivated before any external token/ETH transfers
+- Overpayment refunded to buyer automatically
+- Uses a minimal `ITokenIT` interface (`getPropertyShareToken`) — no tight coupling to full TokenIT contract
 
 ---
 
@@ -162,25 +199,29 @@ When rent is deposited again, `rentPool` grows, so `totalEntitlement` grows, and
 
 | Pattern | Where Used |
 |---------|-----------|
-| **Checks-Effects-Interactions (CEI)** | `claimDividends`: checks first (require), then updates state (`claimedDividends`), then transfers ETH |
+| **Checks-Effects-Interactions (CEI)** | `claimDividends`, `reinvestDividends`, `claimSaleProceeds`: state updated before ETH/token transfers. `Marketplace.buyListing`: listing deactivated before `transferFrom` and ETH payment |
 | **Solidity 0.8+ overflow protection** | All arithmetic automatically reverts on overflow/underflow |
-| **OpenZeppelin audited libraries** | ERC721 (PropertyNFT), ERC20 (PropertyShares), Ownable (PropertyNFT) |
-| **Access control modifiers** | `onlyOwner`, `propertyExists`, `isFractionalized` applied consistently |
-| **Zero address checks** | Constructor and transfer functions |
-| **ETH refund on overpayment** | `buyShares` refunds `msg.value - cost` |
+| **OpenZeppelin audited libraries** | ERC721 (PropertyNFT), ERC20 (PropertyShares), Ownable (PropertyNFT), IERC20 (Marketplace) |
+| **Access control modifiers** | `onlyOwner`, `propertyExists`, `isFractionalized`, `onlyWhitelisted` applied consistently |
+| **Privileged internal helpers** | `transferOnBehalf` and `burnShares` in PropertyShares — restricted to `tokenIT` address only, set as `immutable` at deployment |
+| **Zero address checks** | Constructor, transfer functions, whitelist management |
+| **ETH refund on overpayment** | `buyShares` and `Marketplace.buyListing` both refund excess `msg.value` |
+| **Irreversibility protection** | `initiatePropertySale` uses `require(!property.sold)` to prevent double-sale |
 
 **Known limitations (honest assessment for viva):**
-- No `ReentrancyGuard` — mitigated by using `.transfer()` (2300 gas limit) but best practice is to use the guard
+- No `ReentrancyGuard` — mitigated by CEI pattern and `.transfer()` (2300 gas limit), but best practice is to add the guard
 - Single-owner admin (no multi-sig) — centralization risk
 - Not upgradeable (no proxy pattern) — bugs cannot be patched without redeployment and data migration
-- `_registerAndFractionalizeProperty` has redundant `onlyOwner` on internal function
+- Marketplace uses standard ERC20 `transferFrom` — if seller transfers their shares away after listing (without cancelling), the `buyListing` call will fail; seller should cancel stale listings
 
 ### Gas Optimization Applied
 
 - `immutable` in `PropertyShares` for `tokenIT`, `propertyId`, `totalShares` — saves 2,100 gas per read vs storage
-- Mapping-based storage (`properties`, `claimedDividends`) avoids unbounded loops
-- `_uintToString` is internal pure — no storage access
+- `immutable` in `Marketplace` for `tokenIT` — same benefit
+- Mapping-based storage (`properties`, `claimedDividends`, `listings`) avoids unbounded loops
+- `_uintToString` is `internal pure` — no storage access
 - Return multiple values from `getInvestorInfo` in one call — saves three separate RPC calls on frontend
+- `getPropertyShareToken` returns only what Marketplace needs (address + bool) — avoids decoding the full Property struct cross-contract
 
 ---
 
@@ -210,6 +251,18 @@ A: Partially. `claimDividends` follows CEI — state is updated before the ETH t
 **Q: Why is `PropertyShares.tokenIT` immutable?**
 A: The `tokenIT` address is the address of the `TokenIT` contract that deployed this share token. It never needs to change — if it could, someone could replace it with a malicious contract and drain shares. `immutable` prevents this at the compiler level and also saves gas on reads.
 
+**Q: Why did you add `transferOnBehalf` and `burnShares` to PropertyShares instead of using standard ERC20 approval?**
+A: `transferShares` in TokenIT originally called `shareToken.transferFrom(msg.sender, to, amount)`. This is a bug — it requires the investor to pre-approve the TokenIT contract, which the UI never prompted for. By adding `transferOnBehalf` (restricted to `tokenIT` only), the function works with a single transaction. Similarly, `burnShares` lets `claimSaleProceeds` destroy shares without requiring approval. Both functions check `msg.sender == tokenIT`, so only the deployer contract can call them — no security regression.
+
+**Q: How does the DRIP reinvestment work? Where does the ETH go?**
+A: When an investor calls `reinvestDividends`, the contract calculates their claimable ETH dividend, converts it to shares at the current share price, marks the dividend as claimed, and transfers the shares. Crucially, the dividend ETH is **not transferred out** — it is credited to `shareSaleProceeds` (which the admin can withdraw). This means the contract retains liquidity while the investor gains compound ownership.
+
+**Q: What happens to unclaimed dividends after a property is sold?**
+A: `claimDividends` has no `isFractionalized` guard — it works on sold properties too. Investors can claim rent dividends (accumulated before the sale) independently of claiming sale proceeds. Both are available simultaneously.
+
+**Q: Why does the Marketplace use ERC20 approval instead of `transferOnBehalf`?**
+A: `transferOnBehalf` can only be called by the `tokenIT` address (enforced by `immutable`). The Marketplace is a separate contract — it has no special privileges on PropertyShares. Standard ERC20 approve+transferFrom is the correct pattern for third-party contracts. The two-step flow (approve then list) is handled automatically in the frontend hook.
+
 **Q: What consensus does Ethereum use now?**
 A: Proof of Stake since The Merge (September 2022). Validators stake 32 ETH. Blocks are proposed every 12 seconds. Our development network (Hardhat) uses instant automining — no consensus needed locally.
 
@@ -224,18 +277,20 @@ A: ABI (Application Binary Interface) is a JSON description of a contract's func
 
 | Contract | Standard | Role |
 |----------|----------|------|
-| `TokenIT.sol` | Custom | Platform orchestrator: property registry, share distribution, rent pool, dividends |
+| `TokenIT.sol` | Custom | Platform orchestrator: property registry, share distribution, rent pool, dividends, KYC, valuation, DRIP, property sale/exit |
 | `PropertyNFT.sol` | ERC-721 + Ownable | Unique digital title deed for each physical property |
-| `PropertyShares.sol` | ERC-20 | Fungible fractional ownership token, one deployment per property |
+| `PropertyShares.sol` | ERC-20 | Fungible fractional ownership token, one deployment per property; includes `transferOnBehalf` and `burnShares` helpers |
+| `Marketplace.sol` | Custom | Peer-to-peer secondary market for share listings at custom prices |
 
 ### Stakeholders
 
 | Stakeholder | Address | Capabilities |
 |-------------|---------|-------------|
-| **Admin (Property Owner)** | `0xf39F...2266` | Register properties, deposit rent, withdraw proceeds, set purchase limits |
-| **Investor** | Any wallet | Buy shares, claim dividends, transfer shares P2P |
-| **TokenIT Contract** | `0xe7f1...0512` | Holds unsold shares in escrow, holds ETH (rent + proceeds) |
-| **PropertyShares Contract** | Deployed per property | Tracks ERC20 balances (ownership records) |
+| **Admin (Property Owner)** | `0xf39F...2266` | Register properties, deposit rent, withdraw proceeds, set purchase limits, update property value, manage KYC whitelist, initiate property sale |
+| **Investor** | Any wallet | Buy shares, claim dividends, reinvest dividends (DRIP), transfer shares P2P, claim sale proceeds, list/buy shares on Marketplace |
+| **TokenIT Contract** | `0xe7f1...0512` | Holds unsold shares in escrow, holds ETH (rent pool + share sale proceeds + property sale proceeds) |
+| **Marketplace Contract** | Deployed separately | Escrows ERC20 approvals; facilitates P2P share trades |
+| **PropertyShares Contract** | Deployed per property | Tracks ERC20 balances (ownership records); exposes privileged helpers to TokenIT |
 | **PropertyNFT Contract** | `0x5FbD...aa3` | Holds NFT title deed, minted to admin |
 
 ### Stakeholder Interaction Diagram
@@ -243,15 +298,20 @@ A: ABI (Application Binary Interface) is a JSON description of a contract's func
 ```
 Admin ──────────────────────────────────────────────────────────────────────────┐
   │ registerAndFractionalizeProperty()                                          │
-  │ depositRent()                                                               │
-  │ withdrawShareSaleProceeds()                                                 │
+  │ depositRent()  updatePropertyValue()                                        │
+  │ setWhitelistEnabled()  addToWhitelist()                                     │
+  │ withdrawShareSaleProceeds()  initiatePropertySale()                         │
   ▼                                                                             │
-TokenIT.sol ◄──── buyShares() ────── Investor                                  │
-  │    │          claimDividends()                                              │
-  │    │          transferShares()                                              │
-  │    │                                                                        │
-  │    └──── deploys ──── PropertyShares.sol (ERC20)                           │
-  │                         balanceOf(investor) = shares owned                 │
+TokenIT.sol ◄──── buyShares() ──────────── Investor                            │
+  │    │          claimDividends()              │                               │
+  │    │          reinvestDividends() (DRIP)    │ approve(marketplace, shares)  │
+  │    │          claimSaleProceeds()           ▼                               │
+  │    │          transferShares()         Marketplace.sol                      │
+  │    │                                   createListing()                      │
+  │    └──── deploys ──── PropertyShares.sol    buyListing()                    │
+  │                         balanceOf(investor) cancelListing()                 │
+  │                         transferOnBehalf()  ◄── queries TokenIT             │
+  │                         burnShares()                                        │
   │                                                                             │
   └──── calls ──── PropertyNFT.sol (ERC721)  ◄──────────────────────────────── ┘
                     NFT minted to admin
@@ -321,10 +381,17 @@ When `npm run deploy` runs:
 | Operation | Gas Used | ETH Cost (at 1 gwei) |
 |-----------|----------|---------------------|
 | Deploy TokenIT | ~2,000,000 | 0.002 ETH |
+| Deploy Marketplace | ~700,000 | 0.0007 ETH |
 | registerAndFractionalizeProperty | ~800,000 | 0.0008 ETH |
 | buyShares (100 shares) | ~80,000 | 0.00008 ETH |
 | claimDividends | ~50,000 | 0.00005 ETH |
 | depositRent | ~45,000 | 0.000045 ETH |
+| reinvestDividends (DRIP) | ~90,000 | 0.00009 ETH |
+| updatePropertyValue | ~35,000 | 0.000035 ETH |
+| initiatePropertySale | ~50,000 | 0.00005 ETH |
+| claimSaleProceeds | ~60,000 | 0.00006 ETH |
+| Marketplace.createListing | ~70,000 | 0.00007 ETH |
+| Marketplace.buyListing | ~85,000 | 0.000085 ETH |
 
 ### Chain Linkage (Immutability)
 
@@ -410,9 +477,10 @@ Deployer:     0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
 PropertyNFT deployed to:  0x5FbDB2315678afecb367f032d93F642f64180aa3
 TokenIT deployed to:      0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+Marketplace deployed to:  0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
 ```
 
-These addresses are deterministic — as long as the deployer account has never made any transactions before (nonce 0), the addresses will always be the same.
+`PropertyNFT` and `TokenIT` addresses are deterministic — as long as the deployer account starts at nonce 0, they are always the same. `Marketplace` address is nonce 2 from the deployer and is also deterministic but may vary if the deploy script order changes.
 
 ### Smart Contract Execution Outputs (Sample)
 
@@ -458,6 +526,65 @@ Output: DividendsClaimed event
   ├── propertyId: 1
   ├── investor: 0x7099...79C8
   └── amount: 1000000000000000000 (1 ETH in wei)
+```
+
+#### 5. Reinvest Dividends — DRIP (Investor with 1 ETH pending, sharePrice = 0.1 ETH)
+```
+Calculation:
+  claimable       = 1 ETH
+  sharesToReceive = 1 ETH / 0.1 ETH = 10 shares
+  costOfShares    = 10 * 0.1 ETH = 1 ETH
+  ETH stays in contract (credited to shareSaleProceeds)
+
+Output: DividendsReinvested event
+  ├── propertyId: 1
+  ├── investor: 0x7099...79C8
+  ├── dividendAmount: 1000000000000000000 (1 ETH)
+  └── sharesReceived: 10
+```
+
+#### 6. Initiate Property Sale (Admin sends 120 ETH)
+```
+Input:  propertyId=1, msg.value=120 ETH
+Output: PropertySold event
+  ├── propertyId: 1
+  ├── salePrice: 120000000000000000000 (120 ETH)
+  └── pricePerShare: 120000000000000000 (0.12 ETH per share)
+State changes: property.sold = true, property.fractionalized = false
+               property.saleProceeds = 120 ETH
+```
+
+#### 7. Claim Sale Proceeds (Investor with 100/1000 shares)
+```
+Calculation:
+  payout = (100 * 120 ETH) / 1000 = 12 ETH
+
+Output: SaleProceedsClaimed event
+  ├── propertyId: 1
+  ├── investor: 0x7099...79C8
+  ├── amount: 12000000000000000000 (12 ETH)
+  └── sharesRedeemed: 100
+State change: 100 shares burned from investor balance
+```
+
+#### 8. Marketplace Listing + Fill
+```
+// Seller lists 50 shares at 0.12 ETH each
+Input:  propertyId=1, shares=50, pricePerShare=0.12 ETH
+Output: ListingCreated event
+  ├── listingId: 1
+  ├── propertyId: 1
+  ├── seller: 0x7099...79C8
+  ├── shares: 50
+  └── pricePerShare: 120000000000000000 (0.12 ETH)
+
+// Buyer fills the listing (sends 6 ETH)
+Output: ListingFilled event
+  ├── listingId: 1
+  ├── buyer: 0x3C44...3BC
+  ├── seller: 0x7099...79C8
+  ├── shares: 50
+  └── totalCost: 6000000000000000000 (6 ETH)
 ```
 
 ---
@@ -550,13 +677,15 @@ Production recommendation:
 
 Questions asked during design:
 
-*What does a rational investor do?* — Buy shares at any price below their perceived yield. Claim dividends immediately when available. Could try to buy >50% of shares in one go → blocked by anti-whale rule.
+*What does a rational investor do?* — Buy shares at any price below their perceived yield. Claim dividends immediately when available. Use DRIP to compound holdings. List shares on Marketplace at premium if property value has appreciated. Could try to buy >50% of shares in one go → blocked by anti-whale rule.
 
-*What does a malicious actor do?* — Try to manipulate dividend calculation → cannot, it's a pure formula. Try to front-run a rent deposit → could buy shares right before rent is deposited, then claim dividends → **this is a known and accepted limitation** (similar to dividend capture strategies in traditional markets). Could try reentrancy on `claimDividends` → mitigated by CEI pattern and `.transfer()` gas limit.
+*What does a malicious actor do?* — Try to manipulate dividend calculation → cannot, it's a pure formula. Try to front-run a rent deposit → could buy shares right before rent is deposited, then claim dividends → **this is a known and accepted limitation** (similar to dividend capture strategies in traditional markets). Could try reentrancy on `claimDividends` or `claimSaleProceeds` → mitigated by CEI pattern and `.transfer()` gas limit. Could create a fake listing on Marketplace after approving but before transferring → Marketplace's `buyListing` would revert if `transferFrom` fails — buyer gets their ETH back (overpayment refund path). Could try to list shares on Marketplace after property sale → `require(!sold)` blocks it.
 
 #### Event & Indexing Design
 
 Events emitted for every state change:
+
+**TokenIT.sol events:**
 
 | Event | Indexed Fields | Purpose |
 |-------|---------------|---------|
@@ -564,10 +693,25 @@ Events emitted for every state change:
 | `SharesPurchased` | `propertyId`, `buyer` | Track investor activity |
 | `RentDeposited` | `propertyId`, `depositor` | Trigger frontend refresh |
 | `DividendsClaimed` | `propertyId`, `investor` | Track payouts |
+| `DividendsReinvested` | `propertyId`, `investor` | Track DRIP transactions |
 | `SharesTransferred` | `propertyId`, `from`, `to` | Track P2P transfers |
 | `ShareSaleProceedsWithdrawn` | `propertyId`, `admin` | Track admin withdrawals |
+| `PropertyValueUpdated` | `propertyId` | Track valuation changes |
+| `InvestorWhitelisted` | `investor` | KYC audit trail |
+| `InvestorRemovedFromWhitelist` | `investor` | KYC audit trail |
+| `WhitelistToggled` | — | KYC state changes |
+| `PropertySold` | `propertyId` | Track property exit |
+| `SaleProceedsClaimed` | `propertyId`, `investor` | Track investor redemptions |
 
-Frontend uses Ethers.js event listeners / polling to detect state changes. In production, The Graph would index these events for efficient historical queries.
+**Marketplace.sol events:**
+
+| Event | Indexed Fields | Purpose |
+|-------|---------------|---------|
+| `ListingCreated` | `listingId`, `propertyId`, `seller` | New listings |
+| `ListingFilled` | `listingId`, `propertyId`, `buyer` | Completed trades |
+| `ListingCancelled` | `listingId` | Cancelled listings |
+
+Frontend uses Ethers.js `queryFilter(filter, 0, 'latest')` to query historical events and periodic polling for live updates. In production, The Graph would index these events for efficient historical queries.
 
 ---
 
@@ -598,7 +742,7 @@ Frontend uses Ethers.js event listeners / polling to detect state changes. In pr
 
 #### Test Coverage
 
-Current test files exist in the `test/` directory. 
+Current test files exist in the `test/` directory.
 
 Key test cases to demonstrate:
 - ✅ Happy path: register → buy → deposit rent → claim dividends
@@ -608,6 +752,15 @@ Key test cases to demonstrate:
 - ✅ Edge case: claim when nothing deposited → should revert
 - ✅ Edge case: non-admin calls `registerAndFractionalizeProperty` → should revert
 - ✅ Double claim: claim once, then claim again before new rent → should revert or return 0
+- ✅ DRIP reinvest: dividend too small for one share → should revert
+- ✅ Whitelist: buy when whitelist ON and not whitelisted → should revert
+- ✅ Whitelist: buy when whitelist ON and whitelisted → should succeed
+- ✅ Property sale: buy after `initiatePropertySale` → should revert
+- ✅ Property sale: claim proceeds proportional to shares → correct ETH amount
+- ✅ Marketplace: buy own listing → should revert
+- ✅ Marketplace: buy with insufficient ETH → should revert
+- ✅ Marketplace: list shares for a sold property → should revert
+- ✅ transferShares: single transaction, no prior approval needed (uses `transferOnBehalf`)
 
 #### Gas Optimization Applied
 
@@ -707,14 +860,17 @@ Production need: Chainlink ETH/USD price feed to show property values in dollars
 #### Dependency Management
 
 External contracts called:
-- `PropertyShares.transfer()` called from `TokenIT.buyShares()` — trusted because `TokenIT` deployed it
-- `PropertyShares.transferFrom()` called from `TokenIT.transferShares()` — same trust
+- `PropertyShares.transfer()` — called from `TokenIT.buyShares()`, `TokenIT.reinvestDividends()`. Trusted: TokenIT deployed it and `transferOnBehalf`/`burnShares` are gated by `msg.sender == tokenIT`
+- `PropertyShares.transferOnBehalf()` — called from `TokenIT.transferShares()`. No approval needed; only callable by TokenIT
+- `PropertyShares.burnShares()` — called from `TokenIT.claimSaleProceeds()`. Destroys shares cleanly; only callable by TokenIT
+- `PropertyShares.transferFrom()` — called from `Marketplace.buyListing()`. Standard ERC20; requires seller's prior `approve(marketplace, amount)`
+- `ITokenIT.getPropertyShareToken()` — called from `Marketplace.createListing()`. Read-only; returns share token address and sold status
 
-OpenZeppelin dependencies: version-pinned via `package.json`. Monitor for governance changes.
+OpenZeppelin dependencies: version-pinned via `package.json` (OZ 5.x). `IERC20` used in Marketplace — no external trust assumptions beyond the standard interface.
 
 #### Community & Governance
 
-Not yet implemented. Future Phase 3 will add on-chain voting for property sale decisions, weighted by share ownership. Time-locks would prevent flash-loan governance attacks.
+Currently admin-controlled. Phase 3 added property sale/exit which is an admin decision. A future governance upgrade could require a shareholder vote (weighted by share ownership) before `initiatePropertySale` can be called. Time-locks on governance proposals would prevent flash-loan governance attacks (buy shares → vote → sell shares in one block).
 
 ---
 
