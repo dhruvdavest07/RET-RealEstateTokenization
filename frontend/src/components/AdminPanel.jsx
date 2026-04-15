@@ -18,23 +18,35 @@ export function AdminPanel({
   const [regMinPurchase, setRegMinPurchase] = useState('1');
   const [regMaxPurchase, setRegMaxPurchase] = useState('0');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const [txStatus, setTxStatus] = useState(null);
+  const [showRegisterForm, setShowRegisterForm] = useState(false);
 
   useEffect(() => {
     const checkAdmin = async () => {
-      console.log("AdminPanel - isConnected:", isConnected);
-      console.log("AdminPanel - checkIsAdmin exists:", !!checkIsAdmin);
+      setIsCheckingAdmin(true);
       if (isConnected && checkIsAdmin) {
         const adminStatus = await checkIsAdmin();
-        console.log("AdminPanel - adminStatus:", adminStatus);
         setIsAdmin(adminStatus);
       }
+      setIsCheckingAdmin(false);
     };
     checkAdmin();
   }, [isConnected, checkIsAdmin]);
 
   if (!isConnected) {
     return null; // Don't show admin panel if not connected
+  }
+
+  if (isCheckingAdmin) {
+    return (
+      <div className="card p-6">
+        <div className="flex items-center justify-center py-6 text-gray-400">
+          <span className="spinner border-gray-400 mr-2"></span>
+          <p className="text-sm">Checking access...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!isAdmin) {
@@ -50,27 +62,96 @@ export function AdminPanel({
     );
   }
 
-  // If admin but no property is loaded, show registration form
-  if (!property) {
-    const handleRegister = async () => {
-      if (!regLocation || !regValue || !regShares) return;
-      setTxStatus({ type: 'loading', message: 'Registering property...' });
-      try {
-        const valueWei = regValue; // Already in ETH, will be converted in App.jsx
-        const result = await onRegisterProperty(regLocation, valueWei, regShares, regMinPurchase, regMaxPurchase);
-        setTxStatus({ type: 'success', message: `Property created (ID: ${result.propertyId || '?'})` });
-        setRegLocation('');
-        setRegValue('');
-        setRegShares('');
-        setRegMinPurchase('1');
-        setRegMaxPurchase('0');
-        setTimeout(() => setTxStatus(null), 5000);
-      } catch (err) {
-        setTxStatus({ type: 'error', message: err.reason || err.message || 'Registration failed' });
-        setTimeout(() => setTxStatus(null), 5000);
-      }
-    };
+  const handleRegister = async () => {
+    if (!regLocation || !regValue || !regShares) return;
+    setTxStatus({ type: 'loading', message: 'Registering property...' });
+    try {
+      const result = await onRegisterProperty(regLocation, regValue, regShares, regMinPurchase, regMaxPurchase);
+      setTxStatus({ type: 'success', message: `Property created (ID: ${result.propertyId || '?'})` });
+      setRegLocation('');
+      setRegValue('');
+      setRegShares('');
+      setRegMinPurchase('1');
+      setRegMaxPurchase('0');
+      setShowRegisterForm(false);
+      setTimeout(() => setTxStatus(null), 5000);
+    } catch (err) {
+      setTxStatus({ type: 'error', message: err.reason || err.message || 'Registration failed' });
+      setTimeout(() => setTxStatus(null), 5000);
+    }
+  };
 
+  const registerFormContent = (
+    <div className="space-y-3">
+      <div>
+        <label className="label">Location</label>
+        <input
+          type="text"
+          value={regLocation}
+          onChange={(e) => setRegLocation(e.target.value)}
+          className="input w-full"
+          placeholder="123 Main St, City"
+        />
+      </div>
+      <div>
+        <label className="label">Value (ETH)</label>
+        <input
+          type="number"
+          step="0.001"
+          value={regValue}
+          onChange={(e) => setRegValue(e.target.value)}
+          className="input w-full"
+          placeholder="100"
+          min="0.001"
+        />
+      </div>
+      <div>
+        <label className="label">Total Shares</label>
+        <input
+          type="number"
+          value={regShares}
+          onChange={(e) => setRegShares(e.target.value)}
+          className="input w-full"
+          placeholder="1000"
+          min="1"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label">Min Purchase</label>
+          <input
+            type="number"
+            value={regMinPurchase}
+            onChange={(e) => setRegMinPurchase(e.target.value)}
+            className="input w-full"
+            placeholder="1"
+            min="1"
+          />
+        </div>
+        <div>
+          <label className="label">Max Purchase (0=unlimited)</label>
+          <input
+            type="number"
+            value={regMaxPurchase}
+            onChange={(e) => setRegMaxPurchase(e.target.value)}
+            className="input w-full"
+            placeholder="0"
+            min="0"
+          />
+        </div>
+      </div>
+      <button
+        onClick={handleRegister}
+        disabled={!regLocation || !regValue || !regShares || isLoading}
+        className="btn btn-primary w-full"
+      >
+        Register &amp; Fractionalize
+      </button>
+    </div>
+  );
+
+  // If no property loaded, show only the registration form
+  if (!property) {
     return (
       <div className="card p-6 border-2 border-blue-200">
         <h3 className="text-lg font-semibold mb-4">Register New Property</h3>
@@ -84,72 +165,7 @@ export function AdminPanel({
             {txStatus.message}
           </div>
         )}
-        <div className="space-y-3">
-          <div>
-            <label className="label">Location</label>
-            <input
-              type="text"
-              value={regLocation}
-              onChange={(e) => setRegLocation(e.target.value)}
-              className="input w-full"
-              placeholder="123 Main St, City"
-            />
-          </div>
-          <div>
-            <label className="label">Value (ETH)</label>
-            <input
-              type="number"
-              step="0.001"
-              value={regValue}
-              onChange={(e) => setRegValue(e.target.value)}
-              className="input w-full"
-              placeholder="100"
-              min="0.001"
-            />
-          </div>
-          <div>
-            <label className="label">Total Shares</label>
-            <input
-              type="number"
-              value={regShares}
-              onChange={(e) => setRegShares(e.target.value)}
-              className="input w-full"
-              placeholder="1000"
-              min="1"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Min Purchase</label>
-              <input
-                type="number"
-                value={regMinPurchase}
-                onChange={(e) => setRegMinPurchase(e.target.value)}
-                className="input w-full"
-                placeholder="1"
-                min="1"
-              />
-            </div>
-            <div>
-              <label className="label">Max Purchase (0=unlimited)</label>
-              <input
-                type="number"
-                value={regMaxPurchase}
-                onChange={(e) => setRegMaxPurchase(e.target.value)}
-                className="input w-full"
-                placeholder="0"
-                min="0"
-              />
-            </div>
-          </div>
-          <button
-            onClick={handleRegister}
-            disabled={!regLocation || !regValue || !regShares || isLoading}
-            className="btn btn-primary w-full"
-          >
-            Register &amp; Fractionalize
-          </button>
-        </div>
+        {registerFormContent}
       </div>
     );
   }
@@ -320,6 +336,27 @@ export function AdminPanel({
             <strong>Note:</strong> Share sale proceeds come from investors buying shares. This is separate from the rent pool.
           </p>
         </div>
+      </div>
+
+      {/* Register New Property (collapsible) */}
+      <div className="mt-6">
+        <button
+          onClick={() => setShowRegisterForm((v) => !v)}
+          className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+        >
+          <span>Register New Property</span>
+          <svg
+            className={`w-4 h-4 transition-transform ${showRegisterForm ? 'rotate-180' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {showRegisterForm && (
+          <div className="mt-3 p-4 border border-gray-200 rounded-lg">
+            {registerFormContent}
+          </div>
+        )}
       </div>
 
       {/* Admin Info */}

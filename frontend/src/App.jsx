@@ -8,7 +8,7 @@ import { InvestorActions } from './components/InvestorActions';
 import { AdminPanel } from './components/AdminPanel';
 
 function App() {
-  const [propertyId, setPropertyId] = useState('1');
+  const [propertyId, setPropertyId] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -110,12 +110,10 @@ function App() {
   };
 
   const handleRegisterProperty = async (location, valueEth, totalShares, minPurchase = 1, maxPurchase = 0) => {
-    // convert value to wei
     const valueWei = ethers.utils.parseEther(valueEth);
     const { txHash, propertyId: newId } = await registerProperty(location, valueWei, totalShares, minPurchase, maxPurchase);
-    showToast(`Property registered! ID: ${newId || '(unknown)'} Tx: ${txHash.slice(0, 10)}...`, 'success');
+    showToast(`Property registered! ID: ${newId || '(unknown)'}`, 'success');
 
-    // automatically load the new property if we know its id
     if (newId) {
       setPropertyId(newId);
       loadProperty(newId);

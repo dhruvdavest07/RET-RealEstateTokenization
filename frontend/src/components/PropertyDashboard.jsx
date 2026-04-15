@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 
 export function PropertyDashboard({ property, investorInfo, isLoading, onRefresh }) {
-  const [propertyId, setPropertyId] = useState('1');
+  const [propertyId, setPropertyId] = useState('');
 
   if (isLoading) {
     return (
