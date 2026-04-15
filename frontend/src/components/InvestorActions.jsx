@@ -1,18 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 
-export function InvestorActions({ 
-  property, 
-  investorInfo, 
-  isConnected, 
-  onBuyShares, 
+export function InvestorActions({
+  property,
+  investorInfo,
+  isConnected,
+  onBuyShares,
   onClaimDividends,
+  onReinvestDividends,
   onTransferShares,
-  isLoading 
+  isLoading,
+  whitelistEnabled,
+  isWhitelisted,
+  contract,
+  account,
 }) {
   const [sharesToBuy, setSharesToBuy] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferTo, setTransferTo] = useState('');
   const [txStatus, setTxStatus] = useState(null);
+  const [reinvestPreview, setReinvestPreview] = useState(null);
+
+  // Preview how many shares a reinvestment would yield
+  useEffect(() => {
+    const fetchPreview = async () => {
+      if (!contract || !account || !property) return;
+      try {
+        const preview = await contract.previewReinvestment(property.propertyId, account);
+        setReinvestPreview({
+          dividendAmount: ethers.utils.formatEther(preview.dividendAmount),
+          sharesWouldReceive: preview.sharesWouldReceive.toString(),
+        });
+      } catch {
+        setReinvestPreview(null);
+      }
+    };
+    fetchPreview();
+  }, [contract, account, property]);
 
   if (!isConnected) {
     return (
@@ -55,13 +79,25 @@ export function InvestorActions({
 
   const handleClaimDividends = async () => {
     setTxStatus({ type: 'loading', message: 'Claiming dividends...' });
-    
     try {
       const txHash = await onClaimDividends(property.propertyId);
       setTxStatus({ type: 'success', message: `Dividends claimed! Tx: ${txHash.slice(0, 10)}...` });
       setTimeout(() => setTxStatus(null), 5000);
     } catch (err) {
       setTxStatus({ type: 'error', message: err.reason || err.message || 'Claim failed' });
+      setTimeout(() => setTxStatus(null), 5000);
+    }
+  };
+
+  const handleReinvest = async () => {
+    setTxStatus({ type: 'loading', message: 'Reinvesting dividends...' });
+    try {
+      const txHash = await onReinvestDividends(property.propertyId);
+      setTxStatus({ type: 'success', message: `Reinvested! Tx: ${txHash.slice(0, 10)}...` });
+      setReinvestPreview(null);
+      setTimeout(() => setTxStatus(null), 5000);
+    } catch (err) {
+      setTxStatus({ type: 'error', message: err.reason || err.message || 'Reinvest failed' });
       setTimeout(() => setTxStatus(null), 5000);
     }
   };
@@ -105,6 +141,26 @@ export function InvestorActions({
         }`}>
           {txStatus.type === 'loading' && <span className="spinner border-current mr-2"></span>}
           {txStatus.message}
+        </div>
+      )}
+
+      {/* Whitelist Banner */}
+      {whitelistEnabled && !isWhitelisted && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded-lg flex items-start space-x-2">
+          <svg className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <p className="text-sm text-yellow-800">
+            <strong>KYC required.</strong> Whitelist is active. Contact the admin to get approved before buying shares.
+          </p>
+        </div>
+      )}
+      {whitelistEnabled && isWhitelisted && (
+        <div className="mb-4 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
+          <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-xs text-green-700">KYC approved — you are whitelisted</p>
         </div>
       )}
 
@@ -251,6 +307,28 @@ export function InvestorActions({
           <p className="mt-2 text-xs text-center text-gray-500">
             Based on your {investorInfo.sharesOwned} shares ownership
           </p>
+        )}
+
+        {/* Reinvest Dividends */}
+        {reinvestPreview && parseInt(reinvestPreview.sharesWouldReceive) > 0 && (
+          <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+            <p className="text-xs font-semibold text-indigo-700 mb-2">DRIP — Reinvest as Shares</p>
+            <p className="text-xs text-indigo-600 mb-3">
+              Your {parseFloat(reinvestPreview.dividendAmount).toFixed(6)} ETH dividends
+              would buy <strong>{reinvestPreview.sharesWouldReceive} shares</strong>.
+            </p>
+            <button
+              onClick={handleReinvest}
+              disabled={isLoading}
+              className="btn w-full text-sm bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
+            >
+              {isLoading ? (
+                <><span className="spinner mr-2 border-white"></span>Processing...</>
+              ) : (
+                `Reinvest → ${reinvestPreview.sharesWouldReceive} shares`
+              )}
+            </button>
+          </div>
         )}
       </div>
     </div>

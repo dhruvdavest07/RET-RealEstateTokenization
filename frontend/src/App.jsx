@@ -15,6 +15,8 @@ function App() {
   const [toast, setToast] = useState(null);
   const [activeTab, setActiveTab] = useState('market');
   const [detailPropertyId, setDetailPropertyId] = useState(null);
+  const [whitelistActive, setWhitelistActive] = useState(false);
+  const [investorWhitelisted, setInvestorWhitelisted] = useState(false);
 
   const {
     account,
@@ -36,11 +38,17 @@ function App() {
     loadInvestorInfo,
     buyShares,
     claimDividends,
+    reinvestDividends,
     depositRent,
     transferShares,
     checkIsAdmin,
     registerProperty,
     withdrawShareSaleProceeds,
+    updatePropertyValue,
+    setWhitelistEnabled,
+    addToWhitelist,
+    removeFromWhitelist,
+    addBatchToWhitelist,
   } = useProperty(contract, account);
 
   // Check admin status when connected
@@ -53,6 +61,22 @@ function App() {
     };
     checkAdminStatus();
   }, [isConnected, checkIsAdmin, account]);
+
+  // Sync whitelist state whenever contract or account changes
+  useEffect(() => {
+    const syncWhitelist = async () => {
+      if (!contract || !account) return;
+      try {
+        const enabled = await contract.whitelistEnabled();
+        setWhitelistActive(enabled);
+        const wl = await contract.whitelisted(account);
+        setInvestorWhitelisted(wl);
+      } catch {
+        // contract may not have these functions on old deployments
+      }
+    };
+    syncWhitelist();
+  }, [contract, account]);
 
   // Load property on mount and when propertyId changes
   useEffect(() => {
@@ -124,6 +148,44 @@ function App() {
     }
 
     return { txHash, propertyId: newId };
+  };
+
+  const handleReinvestDividends = async (propId) => {
+    const result = await reinvestDividends(propId);
+    showToast('Dividends reinvested as shares!', 'success');
+    return result;
+  };
+
+  const handleUpdatePropertyValue = async (propId, valueEth) => {
+    const result = await updatePropertyValue(propId, valueEth);
+    showToast('Property value updated!', 'success');
+    return result;
+  };
+
+  const handleSetWhitelistEnabled = async (enabled) => {
+    await setWhitelistEnabled(enabled);
+    setWhitelistActive(enabled);
+    showToast(`Whitelist ${enabled ? 'enabled' : 'disabled'}`, 'success');
+  };
+
+  const handleAddToWhitelist = async (investor) => {
+    await addToWhitelist(investor);
+    if (investor.toLowerCase() === account?.toLowerCase()) setInvestorWhitelisted(true);
+    showToast(`${investor.slice(0, 10)}... whitelisted`, 'success');
+  };
+
+  const handleRemoveFromWhitelist = async (investor) => {
+    await removeFromWhitelist(investor);
+    if (investor.toLowerCase() === account?.toLowerCase()) setInvestorWhitelisted(false);
+    showToast(`${investor.slice(0, 10)}... removed from whitelist`, 'success');
+  };
+
+  const handleAddBatchToWhitelist = async (investors) => {
+    await addBatchToWhitelist(investors);
+    if (investors.map(a => a.toLowerCase()).includes(account?.toLowerCase())) {
+      setInvestorWhitelisted(true);
+    }
+    showToast(`${investors.length} addresses whitelisted`, 'success');
   };
 
   const handleNavigateToProperty = (id) => {
@@ -275,16 +337,28 @@ function App() {
                   isConnected={isConnected}
                   onBuyShares={handleBuyShares}
                   onClaimDividends={handleClaimDividends}
+                  onReinvestDividends={handleReinvestDividends}
                   onTransferShares={handleTransferShares}
                   isLoading={propertyLoading}
+                  whitelistEnabled={whitelistActive}
+                  isWhitelisted={investorWhitelisted}
+                  contract={contract}
+                  account={account}
                 />
                 <AdminPanel
                   property={property}
                   isConnected={isConnected}
                   account={account}
+                  contract={contract}
                   onDepositRent={handleDepositRent}
                   onRegisterProperty={handleRegisterProperty}
                   onWithdrawProceeds={handleWithdrawProceeds}
+                  onUpdatePropertyValue={handleUpdatePropertyValue}
+                  onSetWhitelistEnabled={handleSetWhitelistEnabled}
+                  onAddToWhitelist={handleAddToWhitelist}
+                  onRemoveFromWhitelist={handleRemoveFromWhitelist}
+                  onAddBatchToWhitelist={handleAddBatchToWhitelist}
+                  whitelistActive={whitelistActive}
                   isLoading={propertyLoading}
                   checkIsAdmin={checkIsAdmin}
                 />

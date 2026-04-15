@@ -259,6 +259,84 @@ export function useProperty(contract, account) {
     }
   }, [contract]);
 
+  // Reinvest dividends as shares (DRIP)
+  const reinvestDividends = useCallback(async (propertyId) => {
+    if (!contract) throw new Error('Contract not initialized');
+    try {
+      const tx = await contract.reinvestDividends(propertyId);
+      await tx.wait();
+      await loadProperty(propertyId);
+      return tx.hash;
+    } catch (err) {
+      console.error('Error reinvesting dividends:', err);
+      throw err;
+    }
+  }, [contract, loadProperty]);
+
+  // Update property market value (admin only)
+  const updatePropertyValue = useCallback(async (propertyId, newValueEth) => {
+    if (!contract) throw new Error('Contract not initialized');
+    try {
+      const newValueWei = ethers.utils.parseEther(newValueEth);
+      const tx = await contract.updatePropertyValue(propertyId, newValueWei);
+      await tx.wait();
+      await loadProperty(propertyId);
+      return tx.hash;
+    } catch (err) {
+      console.error('Error updating property value:', err);
+      throw err;
+    }
+  }, [contract, loadProperty]);
+
+  // Whitelist management (admin only)
+  const setWhitelistEnabled = useCallback(async (enabled) => {
+    if (!contract) throw new Error('Contract not initialized');
+    try {
+      const tx = await contract.setWhitelistEnabled(enabled);
+      await tx.wait();
+      return tx.hash;
+    } catch (err) {
+      console.error('Error toggling whitelist:', err);
+      throw err;
+    }
+  }, [contract]);
+
+  const addToWhitelist = useCallback(async (investor) => {
+    if (!contract) throw new Error('Contract not initialized');
+    try {
+      const tx = await contract.addToWhitelist(investor);
+      await tx.wait();
+      return tx.hash;
+    } catch (err) {
+      console.error('Error adding to whitelist:', err);
+      throw err;
+    }
+  }, [contract]);
+
+  const removeFromWhitelist = useCallback(async (investor) => {
+    if (!contract) throw new Error('Contract not initialized');
+    try {
+      const tx = await contract.removeFromWhitelist(investor);
+      await tx.wait();
+      return tx.hash;
+    } catch (err) {
+      console.error('Error removing from whitelist:', err);
+      throw err;
+    }
+  }, [contract]);
+
+  const addBatchToWhitelist = useCallback(async (investors) => {
+    if (!contract) throw new Error('Contract not initialized');
+    try {
+      const tx = await contract.addBatchToWhitelist(investors);
+      await tx.wait();
+      return tx.hash;
+    } catch (err) {
+      console.error('Error batch whitelisting:', err);
+      throw err;
+    }
+  }, [contract]);
+
   // Withdraw share sale proceeds (admin only)
   const withdrawShareSaleProceeds = useCallback(async (propertyId, amount = '0') => {
     if (!contract) throw new Error('Contract not initialized');
@@ -314,10 +392,16 @@ export function useProperty(contract, account) {
     loadInvestorInfo,
     buyShares,
     claimDividends,
+    reinvestDividends,
     depositRent,
     transferShares,
     checkIsAdmin,
     registerProperty,
     withdrawShareSaleProceeds,
+    updatePropertyValue,
+    setWhitelistEnabled,
+    addToWhitelist,
+    removeFromWhitelist,
+    addBatchToWhitelist,
   };
 }

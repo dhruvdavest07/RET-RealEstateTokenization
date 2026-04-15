@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
 
-export function AdminPanel({ 
-  property, 
-  isConnected, 
-  account, 
-  onDepositRent, 
+export function AdminPanel({
+  property,
+  isConnected,
+  account,
+  contract,
+  onDepositRent,
   onRegisterProperty,
   onWithdrawProceeds,
+  onUpdatePropertyValue,
+  onSetWhitelistEnabled,
+  onAddToWhitelist,
+  onRemoveFromWhitelist,
+  onAddBatchToWhitelist,
+  whitelistActive,
   isLoading,
-  checkIsAdmin 
+  checkIsAdmin,
 }) {
   const [rentAmount, setRentAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -21,6 +28,10 @@ export function AdminPanel({
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const [txStatus, setTxStatus] = useState(null);
   const [showRegisterForm, setShowRegisterForm] = useState(false);
+  const [showUpdateValue, setShowUpdateValue] = useState(false);
+  const [showWhitelist, setShowWhitelist] = useState(false);
+  const [newValue, setNewValue] = useState('');
+  const [wlAddress, setWlAddress] = useState('');
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -336,6 +347,196 @@ export function AdminPanel({
             <strong>Note:</strong> Share sale proceeds come from investors buying shares. This is separate from the rent pool.
           </p>
         </div>
+      </div>
+
+      {/* Update Property Value (collapsible) */}
+      <div className="mt-4">
+        <button
+          onClick={() => setShowUpdateValue(v => !v)}
+          className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+        >
+          <span>Update Property Value</span>
+          <svg className={`w-4 h-4 transition-transform ${showUpdateValue ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {showUpdateValue && (
+          <div className="mt-3 p-4 border border-gray-200 rounded-lg space-y-3">
+            <p className="text-xs text-gray-500">
+              Recalculates the share price as <code>newValue / totalShares</code>.
+              Does not affect existing balances or dividends.
+            </p>
+            <div>
+              <label className="label">New Property Value (ETH)</label>
+              <input
+                type="number"
+                step="0.001"
+                value={newValue}
+                onChange={e => setNewValue(e.target.value)}
+                className="input w-full"
+                placeholder="e.g. 150"
+                min="0.001"
+              />
+            </div>
+            {newValue && property && (
+              <p className="text-xs text-blue-600">
+                New share price: {(parseFloat(newValue) / parseInt(property.totalShares)).toFixed(6)} ETH
+                {' '}(was {property.sharePrice} ETH)
+              </p>
+            )}
+            <button
+              onClick={async () => {
+                if (!newValue) return;
+                setTxStatus({ type: 'loading', message: 'Updating value...' });
+                try {
+                  await onUpdatePropertyValue(property.propertyId, newValue);
+                  setTxStatus({ type: 'success', message: 'Property value updated!' });
+                  setNewValue('');
+                  setShowUpdateValue(false);
+                  setTimeout(() => setTxStatus(null), 5000);
+                } catch (err) {
+                  setTxStatus({ type: 'error', message: err.reason || err.message || 'Update failed' });
+                  setTimeout(() => setTxStatus(null), 5000);
+                }
+              }}
+              disabled={!newValue || isLoading}
+              className="btn btn-primary w-full"
+            >
+              Update Value
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Whitelist Management (collapsible) */}
+      <div className="mt-4">
+        <button
+          onClick={() => setShowWhitelist(v => !v)}
+          className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+        >
+          <div className="flex items-center space-x-2">
+            <span>KYC Whitelist</span>
+            <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${whitelistActive ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-200 text-gray-500'}`}>
+              {whitelistActive ? 'ON' : 'OFF'}
+            </span>
+          </div>
+          <svg className={`w-4 h-4 transition-transform ${showWhitelist ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {showWhitelist && (
+          <div className="mt-3 p-4 border border-gray-200 rounded-lg space-y-4">
+            {/* Toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Require KYC to buy shares</p>
+                <p className="text-xs text-gray-500">When ON, only whitelisted addresses can buy shares</p>
+              </div>
+              <button
+                onClick={async () => {
+                  setTxStatus({ type: 'loading', message: `${whitelistActive ? 'Disabling' : 'Enabling'} whitelist...` });
+                  try {
+                    await onSetWhitelistEnabled(!whitelistActive);
+                    setTxStatus(null);
+                  } catch (err) {
+                    setTxStatus({ type: 'error', message: err.reason || err.message || 'Failed' });
+                    setTimeout(() => setTxStatus(null), 5000);
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${whitelistActive ? 'bg-blue-600' : 'bg-gray-300'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${whitelistActive ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {/* Add single address */}
+            <div className="space-y-2">
+              <label className="label">Add investor address</label>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={wlAddress}
+                  onChange={e => setWlAddress(e.target.value)}
+                  className="input flex-1 text-xs"
+                  placeholder="0x..."
+                />
+                <button
+                  onClick={async () => {
+                    if (!wlAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+                      setTxStatus({ type: 'error', message: 'Invalid address' });
+                      setTimeout(() => setTxStatus(null), 3000);
+                      return;
+                    }
+                    setTxStatus({ type: 'loading', message: 'Whitelisting...' });
+                    try {
+                      await onAddToWhitelist(wlAddress);
+                      setWlAddress('');
+                      setTxStatus({ type: 'success', message: 'Address whitelisted!' });
+                      setTimeout(() => setTxStatus(null), 3000);
+                    } catch (err) {
+                      setTxStatus({ type: 'error', message: err.reason || err.message || 'Failed' });
+                      setTimeout(() => setTxStatus(null), 5000);
+                    }
+                  }}
+                  disabled={isLoading}
+                  className="btn btn-primary text-sm px-3"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!wlAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+                      setTxStatus({ type: 'error', message: 'Invalid address' });
+                      setTimeout(() => setTxStatus(null), 3000);
+                      return;
+                    }
+                    setTxStatus({ type: 'loading', message: 'Removing...' });
+                    try {
+                      await onRemoveFromWhitelist(wlAddress);
+                      setWlAddress('');
+                      setTxStatus({ type: 'success', message: 'Address removed.' });
+                      setTimeout(() => setTxStatus(null), 3000);
+                    } catch (err) {
+                      setTxStatus({ type: 'error', message: err.reason || err.message || 'Failed' });
+                      setTimeout(() => setTxStatus(null), 5000);
+                    }
+                  }}
+                  disabled={isLoading}
+                  className="btn text-sm px-3 border border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+
+            {/* Batch whitelist all demo accounts */}
+            <div>
+              <p className="text-xs text-gray-500 mb-2">Quick add — all demo investor accounts:</p>
+              <button
+                onClick={async () => {
+                  const demoInvestors = [
+                    '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+                    '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+                    '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
+                  ];
+                  setTxStatus({ type: 'loading', message: 'Whitelisting 3 demo accounts...' });
+                  try {
+                    await onAddBatchToWhitelist(demoInvestors);
+                    setTxStatus({ type: 'success', message: 'All 3 demo investors whitelisted!' });
+                    setTimeout(() => setTxStatus(null), 5000);
+                  } catch (err) {
+                    setTxStatus({ type: 'error', message: err.reason || err.message || 'Batch failed' });
+                    setTimeout(() => setTxStatus(null), 5000);
+                  }
+                }}
+                disabled={isLoading}
+                className="btn w-full text-sm border border-blue-300 text-blue-600 hover:bg-blue-50"
+              >
+                Whitelist all 3 demo investors
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Register New Property (collapsible) */}

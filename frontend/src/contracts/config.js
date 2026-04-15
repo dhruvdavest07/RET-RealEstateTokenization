@@ -48,11 +48,26 @@ export const TOKEN_IT_ABI = [
   "function buyShares(uint256 propertyId, uint256 amount) payable",
   "function depositRent(uint256 propertyId) payable",
   "function claimDividends(uint256 propertyId)",
+  "function reinvestDividends(uint256 propertyId)",
   "function transferShares(uint256 propertyId, address to, uint256 amount)",
   "function linkPropertyNFT(uint256 propertyId, uint256 nftTokenId)",
   "function withdrawShareSaleProceeds(uint256 propertyId, uint256 amount)",
   "function setPurchaseLimits(uint256 propertyId, uint256 minPurchase, uint256 maxPurchase)",
-  
+
+  // Phase 2: Valuation update
+  "function updatePropertyValue(uint256 propertyId, uint256 newValue)",
+
+  // Phase 2: Whitelist management
+  "function setWhitelistEnabled(bool enabled)",
+  "function addToWhitelist(address investor)",
+  "function removeFromWhitelist(address investor)",
+  "function addBatchToWhitelist(address[] calldata investors)",
+
+  // Phase 2: View functions
+  "function whitelisted(address) view returns (bool)",
+  "function whitelistEnabled() view returns (bool)",
+  "function previewReinvestment(uint256 propertyId, address investor) view returns (uint256 dividendAmount, uint256 sharesWouldReceive)",
+
   // Events
   "event PropertyFractionalized(uint256 indexed propertyId, address indexed shareToken, uint256 totalShares, uint256 sharePrice)",
   "event SharesPurchased(uint256 indexed propertyId, address indexed buyer, uint256 amount, uint256 cost)",
@@ -60,6 +75,13 @@ export const TOKEN_IT_ABI = [
   "event DividendsClaimed(uint256 indexed propertyId, address indexed investor, uint256 amount)",
   "event SharesTransferred(uint256 indexed propertyId, address indexed from, address indexed to, uint256 amount)",
   "event ShareSaleProceedsWithdrawn(uint256 indexed propertyId, address indexed admin, uint256 amount)",
+
+  // Phase 2 events
+  "event PropertyValueUpdated(uint256 indexed propertyId, uint256 oldSharePrice, uint256 newSharePrice)",
+  "event InvestorWhitelisted(address indexed investor)",
+  "event InvestorRemovedFromWhitelist(address indexed investor)",
+  "event WhitelistToggled(bool enabled)",
+  "event DividendsReinvested(uint256 indexed propertyId, address indexed investor, uint256 dividendAmount, uint256 sharesReceived)",
 ];
 
 export const PROPERTY_SHARES_ABI = [
