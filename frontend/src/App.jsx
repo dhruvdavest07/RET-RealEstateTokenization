@@ -6,11 +6,15 @@ import { Header } from './components/Header';
 import { PropertyDashboard } from './components/PropertyDashboard';
 import { InvestorActions } from './components/InvestorActions';
 import { AdminPanel } from './components/AdminPanel';
+import { PortfolioDashboard } from './components/PortfolioDashboard';
+import { PropertyDetail } from './components/PropertyDetail';
 
 function App() {
   const [propertyId, setPropertyId] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [toast, setToast] = useState(null);
+  const [activeTab, setActiveTab] = useState('market');
+  const [detailPropertyId, setDetailPropertyId] = useState(null);
 
   const {
     account,
@@ -122,6 +126,14 @@ function App() {
     return { txHash, propertyId: newId };
   };
 
+  const handleNavigateToProperty = (id) => {
+    setActiveTab('market');
+    if (id) {
+      setPropertyId(String(id));
+      loadProperty(String(id));
+    }
+  };
+
   const handleWithdrawProceeds = async (propId, amount) => {
     const result = await withdrawShareSaleProceeds(propId, amount);
     showToast('Share sale proceeds withdrawn successfully!', 'success');
@@ -139,6 +151,32 @@ function App() {
         disconnect={disconnect}
         chainId={chainId}
       />
+
+      {/* Tab Navigation */}
+      {isConnected && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex space-x-0">
+              {[
+                { id: 'market', label: 'Market' },
+                { id: 'portfolio', label: 'My Portfolio' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === tab.id
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -173,67 +211,87 @@ function App() {
           </div>
         )}
 
-        {/* Property Selector */}
-        {isConnected && (
-          <div className="mb-6 flex items-center space-x-4">
-            <label className="font-medium text-gray-700">Property ID:</label>
-            <input
-              type="number"
-              value={propertyId}
-              onChange={(e) => setPropertyId(e.target.value)}
-              className="input w-32"
-              min="1"
-            />
-            <button
-              onClick={() => handleRefresh(propertyId)}
-              className="btn btn-primary"
-            >
-              Load Property
-            </button>
-            {isAdmin && (
-              <span className="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full">
-                Admin Mode
-              </span>
-            )}
-          </div>
+        {/* ── PORTFOLIO TAB ── */}
+        {isConnected && activeTab === 'portfolio' && (
+          <PortfolioDashboard
+            contract={contract}
+            account={account}
+            isConnected={isConnected}
+            onViewDetails={(id) => setDetailPropertyId(id)}
+            onNavigateToProperty={handleNavigateToProperty}
+          />
         )}
 
-        {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Property Dashboard - Takes 2 columns */}
-          <div className="lg:col-span-2">
-            <PropertyDashboard
-              property={property}
-              investorInfo={investorInfo}
-              isLoading={propertyLoading}
-              onRefresh={handleRefresh}
-            />
-          </div>
+        {/* ── MARKET TAB ── */}
+        {(!isConnected || activeTab === 'market') && (
+          <>
+            {/* Property Selector */}
+            {isConnected && (
+              <div className="mb-6 flex items-center space-x-4">
+                <label className="font-medium text-gray-700">Property ID:</label>
+                <input
+                  type="number"
+                  value={propertyId}
+                  onChange={(e) => setPropertyId(e.target.value)}
+                  className="input w-32"
+                  min="1"
+                />
+                <button
+                  onClick={() => handleRefresh(propertyId)}
+                  className="btn btn-primary"
+                >
+                  Load Property
+                </button>
+                {property && (
+                  <button
+                    onClick={() => setDetailPropertyId(parseInt(propertyId))}
+                    className="btn border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm"
+                  >
+                    View Details
+                  </button>
+                )}
+                {isAdmin && (
+                  <span className="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full">
+                    Admin Mode
+                  </span>
+                )}
+              </div>
+            )}
 
-          {/* Actions Sidebar */}
-          <div className="space-y-6">
-            <InvestorActions
-              property={property}
-              investorInfo={investorInfo}
-              isConnected={isConnected}
-              onBuyShares={handleBuyShares}
-              onClaimDividends={handleClaimDividends}
-              onTransferShares={handleTransferShares}
-              isLoading={propertyLoading}
-            />
-
-            <AdminPanel
-              property={property}
-              isConnected={isConnected}
-              account={account}
-              onDepositRent={handleDepositRent}
-              onRegisterProperty={handleRegisterProperty}
-              onWithdrawProceeds={handleWithdrawProceeds}
-              isLoading={propertyLoading}
-              checkIsAdmin={checkIsAdmin}
-            />
-          </div>
-        </div>
+            {/* Dashboard Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <PropertyDashboard
+                  property={property}
+                  investorInfo={investorInfo}
+                  isLoading={propertyLoading}
+                  onRefresh={handleRefresh}
+                />
+              </div>
+              <div className="space-y-6">
+                <InvestorActions
+                  property={property}
+                  investorInfo={investorInfo}
+                  isConnected={isConnected}
+                  onBuyShares={handleBuyShares}
+                  onClaimDividends={handleClaimDividends}
+                  onTransferShares={handleTransferShares}
+                  isLoading={propertyLoading}
+                />
+                <AdminPanel
+                  property={property}
+                  isConnected={isConnected}
+                  account={account}
+                  onDepositRent={handleDepositRent}
+                  onRegisterProperty={handleRegisterProperty}
+                  onWithdrawProceeds={handleWithdrawProceeds}
+                  isLoading={propertyLoading}
+                  checkIsAdmin={checkIsAdmin}
+                />
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Instructions for Demo */}
         {isConnected && (
@@ -256,6 +314,16 @@ function App() {
           </div>
         )}
       </main>
+
+      {/* Property Detail Modal */}
+      {detailPropertyId && (
+        <PropertyDetail
+          propertyId={detailPropertyId}
+          contract={contract}
+          account={account}
+          onClose={() => setDetailPropertyId(null)}
+        />
+      )}
 
       {/* Toast Notification */}
       {toast && (
