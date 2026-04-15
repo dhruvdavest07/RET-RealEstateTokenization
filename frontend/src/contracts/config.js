@@ -8,9 +8,12 @@
 export const CONTRACT_ADDRESSES = {
   // TokenIT contract address (UPDATE THIS after each deploy)
   TOKEN_IT: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-  
+
   // PropertyNFT contract address (UPDATE THIS after each deploy)
   PROPERTY_NFT: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+
+  // Marketplace contract address (UPDATE THIS after each deploy)
+  MARKETPLACE: "0x0000000000000000000000000000000000000000",
 };
 
 // Hardhat local network configuration
@@ -31,7 +34,7 @@ export const NETWORK_CONFIG = {
 
 export const TOKEN_IT_ABI = [
   // View functions
-  "function getProperty(uint256 propertyId) view returns (tuple(uint256 propertyId, uint256 nftTokenId, address shareToken, uint256 totalShares, uint256 rentPool, uint256 shareSaleProceeds, bool fractionalized, uint256 sharePrice, uint256 minPurchaseAmount, uint256 maxPurchaseAmount))",
+  "function getProperty(uint256 propertyId) view returns (tuple(uint256 propertyId, uint256 nftTokenId, address shareToken, uint256 totalShares, uint256 rentPool, uint256 shareSaleProceeds, bool fractionalized, uint256 sharePrice, uint256 minPurchaseAmount, uint256 maxPurchaseAmount, bool sold, uint256 saleProceeds))",
   "function getTotalProperties() view returns (uint256)",
   "function getPendingDividends(uint256 propertyId, address investor) view returns (uint256)",
   "function getInvestorInfo(uint256 propertyId, address investor) view returns (uint256 sharesOwned, uint256 ownershipPercentage, uint256 pendingDividends)",
@@ -40,7 +43,8 @@ export const TOKEN_IT_ABI = [
   "function propertyCounter() view returns (uint256)",
   "function propertyNFT() view returns (address)",
   "function owner() view returns (address)",
-  "function properties(uint256) view returns (uint256 propertyId, uint256 nftTokenId, address shareToken, uint256 totalShares, uint256 rentPool, uint256 shareSaleProceeds, bool fractionalized, uint256 sharePrice, uint256 minPurchaseAmount, uint256 maxPurchaseAmount)",
+  "function properties(uint256) view returns (uint256 propertyId, uint256 nftTokenId, address shareToken, uint256 totalShares, uint256 rentPool, uint256 shareSaleProceeds, bool fractionalized, uint256 sharePrice, uint256 minPurchaseAmount, uint256 maxPurchaseAmount, bool sold, uint256 saleProceeds)",
+  "function getPropertyShareToken(uint256 propertyId) view returns (address shareToken, bool sold)",
   
   // Write functions
   "function registerAndFractionalizeProperty(string location, uint256 value, uint256 totalShares) returns (uint256)",
@@ -68,6 +72,10 @@ export const TOKEN_IT_ABI = [
   "function whitelistEnabled() view returns (bool)",
   "function previewReinvestment(uint256 propertyId, address investor) view returns (uint256 dividendAmount, uint256 sharesWouldReceive)",
 
+  // Phase 3: Property Sale/Exit
+  "function initiatePropertySale(uint256 propertyId) payable",
+  "function claimSaleProceeds(uint256 propertyId)",
+
   // Events
   "event PropertyFractionalized(uint256 indexed propertyId, address indexed shareToken, uint256 totalShares, uint256 sharePrice)",
   "event SharesPurchased(uint256 indexed propertyId, address indexed buyer, uint256 amount, uint256 cost)",
@@ -82,6 +90,23 @@ export const TOKEN_IT_ABI = [
   "event InvestorRemovedFromWhitelist(address indexed investor)",
   "event WhitelistToggled(bool enabled)",
   "event DividendsReinvested(uint256 indexed propertyId, address indexed investor, uint256 dividendAmount, uint256 sharesReceived)",
+
+  // Phase 3 events
+  "event PropertySold(uint256 indexed propertyId, uint256 salePrice, uint256 pricePerShare)",
+  "event SaleProceedsClaimed(uint256 indexed propertyId, address indexed investor, uint256 amount, uint256 sharesRedeemed)",
+];
+
+export const MARKETPLACE_ABI = [
+  "function listingCounter() view returns (uint256)",
+  "function listings(uint256) view returns (uint256 listingId, uint256 propertyId, address seller, address shareToken, uint256 shares, uint256 pricePerShare, bool active)",
+  "function createListing(uint256 propertyId, uint256 shares, uint256 pricePerShare) returns (uint256)",
+  "function buyListing(uint256 listingId) payable",
+  "function cancelListing(uint256 listingId)",
+  "function getActiveListings(uint256 propertyId) view returns (tuple(uint256 listingId, uint256 propertyId, address seller, address shareToken, uint256 shares, uint256 pricePerShare, bool active)[])",
+  "function getAllActiveListings() view returns (tuple(uint256 listingId, uint256 propertyId, address seller, address shareToken, uint256 shares, uint256 pricePerShare, bool active)[])",
+  "event ListingCreated(uint256 indexed listingId, uint256 indexed propertyId, address indexed seller, uint256 shares, uint256 pricePerShare)",
+  "event ListingFilled(uint256 indexed listingId, uint256 indexed propertyId, address indexed buyer, address seller, uint256 shares, uint256 totalCost)",
+  "event ListingCancelled(uint256 indexed listingId, address indexed seller)",
 ];
 
 export const PROPERTY_SHARES_ABI = [

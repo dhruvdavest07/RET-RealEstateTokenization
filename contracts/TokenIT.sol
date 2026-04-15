@@ -25,6 +25,9 @@ contract TokenIT {
         uint256 sharePrice;
         uint256 minPurchaseAmount;
         uint256 maxPurchaseAmount;
+        // Phase 3: Property Sale/Exit
+        bool sold;
+        uint256 saleProceeds;
     }
 
     mapping(uint256 => Property) public properties;
@@ -70,6 +73,19 @@ contract TokenIT {
         uint256 indexed propertyId,
         address indexed admin,
         uint256 amount
+    );
+
+    // Phase 3 events
+    event PropertySold(
+        uint256 indexed propertyId,
+        uint256 salePrice,
+        uint256 pricePerShare
+    );
+    event SaleProceedsClaimed(
+        uint256 indexed propertyId,
+        address indexed investor,
+        uint256 amount,
+        uint256 sharesRedeemed
     );
 
     // Phase 2 events
@@ -177,7 +193,9 @@ contract TokenIT {
             fractionalized: true,
             sharePrice: sharePrice,
             minPurchaseAmount: minPurchase,
-            maxPurchaseAmount: maxPurchase
+            maxPurchaseAmount: maxPurchase,
+            sold: false,
+            saleProceeds: 0
         });
 
         emit PropertyFractionalized(propertyId, address(shareToken), totalShares, sharePrice);
@@ -197,6 +215,7 @@ contract TokenIT {
         uint256 propertyId,
         uint256 amount
     ) external payable propertyExists(propertyId) isFractionalized(propertyId) onlyWhitelisted {
+        require(!properties[propertyId].sold, "Property has been sold");
         require(amount > 0, "Amount must be greater than zero");
 
         Property storage property = properties[propertyId];
@@ -245,7 +264,7 @@ contract TokenIT {
 
     function claimDividends(
         uint256 propertyId
-    ) external propertyExists(propertyId) isFractionalized(propertyId) {
+    ) external propertyExists(propertyId) {
         Property storage property = properties[propertyId];
         PropertyShares shareToken = PropertyShares(property.shareToken);
 
@@ -388,17 +407,72 @@ contract TokenIT {
         uint256 propertyId,
         address to,
         uint256 amount
-    ) external propertyExists(propertyId) isFractionalized(propertyId) {
+    ) external propertyExists(propertyId) {
         require(to != address(0), "Cannot transfer to zero address");
         require(amount > 0, "Amount must be greater than zero");
 
         Property storage property = properties[propertyId];
         PropertyShares shareToken = PropertyShares(property.shareToken);
 
-        bool success = shareToken.transferFrom(msg.sender, to, amount);
-        require(success, "Transfer failed");
+        // Uses TokenIT-privileged helper — no ERC20 approval needed from investor
+        shareToken.transferOnBehalf(msg.sender, to, amount);
 
         emit SharesTransferred(propertyId, msg.sender, to, amount);
+    }
+
+    // ── Phase 3: Property Sale / Exit ────────────────────────────────────────
+
+    /**
+     * @dev Admin marks a property as sold by depositing the total sale proceeds.
+     * Buying new shares is blocked. Existing investors can redeem via claimSaleProceeds.
+     */
+    function initiatePropertySale(
+        uint256 propertyId
+    ) external payable onlyOwner propertyExists(propertyId) {
+        Property storage property = properties[propertyId];
+        require(!property.sold, "Property already sold");
+        require(msg.value > 0, "Must send sale proceeds");
+
+        property.sold = true;
+        property.fractionalized = false; // Block new share purchases
+        property.saleProceeds = msg.value;
+
+        emit PropertySold(propertyId, msg.value, msg.value / property.totalShares);
+    }
+
+    /**
+     * @dev Investor redeems their shares for a proportional payout of sale proceeds.
+     * Shares are burned. No ERC20 approval required.
+     */
+    function claimSaleProceeds(
+        uint256 propertyId
+    ) external propertyExists(propertyId) {
+        Property storage property = properties[propertyId];
+        require(property.sold, "Property not sold yet");
+
+        PropertyShares shareToken = PropertyShares(property.shareToken);
+        uint256 shares = shareToken.balanceOf(msg.sender);
+        require(shares > 0, "No shares to redeem");
+
+        uint256 payout = (shares * property.saleProceeds) / property.totalShares;
+        require(payout > 0, "Nothing to claim");
+
+        // Checks-Effects-Interactions: burn shares before sending ETH
+        shareToken.burnShares(msg.sender, shares);
+        payable(msg.sender).transfer(payout);
+
+        emit SaleProceedsClaimed(propertyId, msg.sender, payout, shares);
+    }
+
+    /**
+     * @dev Helper used by Marketplace.sol to look up a property's share token
+     * and sold status without importing the full Property struct.
+     */
+    function getPropertyShareToken(
+        uint256 propertyId
+    ) external view propertyExists(propertyId) returns (address shareToken, bool sold) {
+        Property storage p = properties[propertyId];
+        return (p.shareToken, p.sold);
     }
 
     // ── View Functions ───────────────────────────────────────────────────────

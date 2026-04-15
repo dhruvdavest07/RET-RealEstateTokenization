@@ -8,6 +8,7 @@ import { InvestorActions } from './components/InvestorActions';
 import { AdminPanel } from './components/AdminPanel';
 import { PortfolioDashboard } from './components/PortfolioDashboard';
 import { PropertyDetail } from './components/PropertyDetail';
+import { Marketplace } from './components/Marketplace';
 
 function App() {
   const [propertyId, setPropertyId] = useState('');
@@ -27,6 +28,7 @@ function App() {
     connectWallet,
     disconnect,
     contract,
+    marketplaceContract,
   } = useWeb3();
 
   const {
@@ -49,6 +51,8 @@ function App() {
     addToWhitelist,
     removeFromWhitelist,
     addBatchToWhitelist,
+    initiatePropertySale,
+    claimSaleProceeds,
   } = useProperty(contract, account);
 
   // Check admin status when connected
@@ -202,6 +206,18 @@ function App() {
     return result;
   };
 
+  const handleInitiatePropertySale = async (propId, salePriceEth) => {
+    const result = await initiatePropertySale(propId, salePriceEth);
+    showToast('Property sale initiated! Investors can now claim proceeds.', 'success');
+    return result;
+  };
+
+  const handleClaimSaleProceeds = async (propId) => {
+    const result = await claimSaleProceeds(propId);
+    showToast('Sale proceeds claimed!', 'success');
+    return result;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -222,6 +238,7 @@ function App() {
               {[
                 { id: 'market', label: 'Market' },
                 { id: 'portfolio', label: 'My Portfolio' },
+                { id: 'marketplace', label: 'Secondary Market' },
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -284,6 +301,16 @@ function App() {
           />
         )}
 
+        {/* ── SECONDARY MARKET TAB ── */}
+        {isConnected && activeTab === 'marketplace' && (
+          <Marketplace
+            marketplaceContract={marketplaceContract}
+            contract={contract}
+            account={account}
+            isConnected={isConnected}
+          />
+        )}
+
         {/* ── MARKET TAB ── */}
         {(!isConnected || activeTab === 'market') && (
           <>
@@ -339,6 +366,7 @@ function App() {
                   onClaimDividends={handleClaimDividends}
                   onReinvestDividends={handleReinvestDividends}
                   onTransferShares={handleTransferShares}
+                  onClaimSaleProceeds={handleClaimSaleProceeds}
                   isLoading={propertyLoading}
                   whitelistEnabled={whitelistActive}
                   isWhitelisted={investorWhitelisted}
@@ -358,6 +386,7 @@ function App() {
                   onAddToWhitelist={handleAddToWhitelist}
                   onRemoveFromWhitelist={handleRemoveFromWhitelist}
                   onAddBatchToWhitelist={handleAddBatchToWhitelist}
+                  onInitiatePropertySale={handleInitiatePropertySale}
                   whitelistActive={whitelistActive}
                   isLoading={propertyLoading}
                   checkIsAdmin={checkIsAdmin}

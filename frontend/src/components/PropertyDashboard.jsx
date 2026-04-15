@@ -54,13 +54,19 @@ export function PropertyDashboard({ property, investorInfo, isLoading, onRefresh
             <h2 className="text-2xl font-bold text-gray-900">
               Property #{property.propertyId}
             </h2>
-            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-              property.fractionalized 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-yellow-100 text-yellow-800'
-            }`}>
-              {property.fractionalized ? 'Active' : 'Pending'}
-            </span>
+            {property.sold ? (
+              <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                SOLD
+              </span>
+            ) : (
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                property.fractionalized
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-yellow-100 text-yellow-800'
+              }`}>
+                {property.fractionalized ? 'Active' : 'Pending'}
+              </span>
+            )}
           </div>
           <p className="text-gray-500">Blockchain Real Estate Investment Trust</p>
         </div>
@@ -137,6 +143,29 @@ export function PropertyDashboard({ property, investorInfo, isLoading, onRefresh
           <span className="text-2xl font-bold text-emerald-700">{property.shareSaleProceeds || '0'} ETH</span>
         </div>
       </div>
+
+      {/* Sale Proceeds Banner — Phase 3 */}
+      {property.sold && (
+        <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-lg p-4 mb-6 border border-red-200">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-sm font-semibold text-red-700">Property Sold</p>
+              <p className="text-xs text-red-600 mt-0.5">
+                Investors can redeem shares for sale proceeds below.
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-red-700">{property.saleProceeds} ETH</p>
+              <p className="text-xs text-red-500">total sale proceeds</p>
+            </div>
+          </div>
+          <div className="mt-2 pt-2 border-t border-red-200 text-xs text-red-600">
+            Payout per share: {property.totalShares
+              ? (parseFloat(property.saleProceeds) / parseInt(property.totalShares)).toFixed(6)
+              : '0'} ETH
+          </div>
+        </div>
+      )}
 
       {/* Investor Info (if connected) */}
       {investorInfo && (

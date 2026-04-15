@@ -70,6 +70,9 @@ export function useProperty(contract, account) {
         sharePrice: ethers.utils.formatEther(propertyData.sharePrice),
         minPurchaseAmount: propertyData.minPurchaseAmount?.toString() || '1',
         maxPurchaseAmount: propertyData.maxPurchaseAmount?.toString() || '0',
+        // Phase 3
+        sold: propertyData.sold || false,
+        saleProceeds: ethers.utils.formatEther(propertyData.saleProceeds || 0),
       });
 
       // Load investor info if account is connected
@@ -337,6 +340,35 @@ export function useProperty(contract, account) {
     }
   }, [contract]);
 
+  // Initiate property sale (admin only) — Phase 3
+  const initiatePropertySale = useCallback(async (propertyId, salePriceEth) => {
+    if (!contract) throw new Error('Contract not initialized');
+    try {
+      const value = ethers.utils.parseEther(salePriceEth);
+      const tx = await contract.initiatePropertySale(propertyId, { value });
+      await tx.wait();
+      await loadProperty(propertyId);
+      return tx.hash;
+    } catch (err) {
+      console.error('Error initiating property sale:', err);
+      throw err;
+    }
+  }, [contract, loadProperty]);
+
+  // Claim sale proceeds (investor) — Phase 3
+  const claimSaleProceeds = useCallback(async (propertyId) => {
+    if (!contract) throw new Error('Contract not initialized');
+    try {
+      const tx = await contract.claimSaleProceeds(propertyId);
+      await tx.wait();
+      await loadProperty(propertyId);
+      return tx.hash;
+    } catch (err) {
+      console.error('Error claiming sale proceeds:', err);
+      throw err;
+    }
+  }, [contract, loadProperty]);
+
   // Withdraw share sale proceeds (admin only)
   const withdrawShareSaleProceeds = useCallback(async (propertyId, amount = '0') => {
     if (!contract) throw new Error('Contract not initialized');
@@ -403,5 +435,7 @@ export function useProperty(contract, account) {
     addToWhitelist,
     removeFromWhitelist,
     addBatchToWhitelist,
+    initiatePropertySale,
+    claimSaleProceeds,
   };
 }

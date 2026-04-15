@@ -102,4 +102,22 @@ contract PropertyShares is ERC20 {
     function getAvailableShares() external view returns (uint256) {
         return balanceOf(tokenIT);
     }
+
+    /**
+     * @dev Transfer shares on behalf of an investor without requiring ERC20 approval.
+     * Only the TokenIT contract may call this — used by transferShares().
+     */
+    function transferOnBehalf(address from, address to, uint256 amount) external {
+        require(msg.sender == tokenIT, "Only TokenIT");
+        _transfer(from, to, amount);
+    }
+
+    /**
+     * @dev Burn shares from an investor without requiring ERC20 approval.
+     * Only the TokenIT contract may call this — used by claimSaleProceeds().
+     */
+    function burnShares(address from, uint256 amount) external {
+        require(msg.sender == tokenIT, "Only TokenIT");
+        _burn(from, amount);
+    }
 }

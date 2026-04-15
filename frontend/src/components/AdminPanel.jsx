@@ -13,6 +13,7 @@ export function AdminPanel({
   onAddToWhitelist,
   onRemoveFromWhitelist,
   onAddBatchToWhitelist,
+  onInitiatePropertySale,
   whitelistActive,
   isLoading,
   checkIsAdmin,
@@ -30,8 +31,10 @@ export function AdminPanel({
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const [showUpdateValue, setShowUpdateValue] = useState(false);
   const [showWhitelist, setShowWhitelist] = useState(false);
+  const [showPropertySale, setShowPropertySale] = useState(false);
   const [newValue, setNewValue] = useState('');
   const [wlAddress, setWlAddress] = useState('');
+  const [salePrice, setSalePrice] = useState('');
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -538,6 +541,103 @@ export function AdminPanel({
           </div>
         )}
       </div>
+
+      {/* Property Sale / Exit (collapsible) — Phase 3 */}
+      {!property?.sold && (
+        <div className="mt-4">
+          <button
+            onClick={() => setShowPropertySale(v => !v)}
+            className="w-full flex items-center justify-between p-3 bg-red-50 hover:bg-red-100 rounded-lg text-sm font-medium text-red-700 transition-colors border border-red-200"
+          >
+            <div className="flex items-center space-x-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span>Initiate Property Sale</span>
+            </div>
+            <svg className={`w-4 h-4 transition-transform ${showPropertySale ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {showPropertySale && (
+            <div className="mt-3 p-4 border border-red-200 rounded-lg bg-red-50 space-y-3">
+              <div className="p-3 bg-red-100 rounded-lg">
+                <p className="text-xs text-red-800 font-medium">This action is irreversible.</p>
+                <p className="text-xs text-red-700 mt-1">
+                  When initiated: share purchases are permanently blocked, and investors can redeem
+                  their shares for a proportional payout of the sale proceeds you send.
+                </p>
+              </div>
+              <div>
+                <label className="label">Total Sale Price (ETH)</label>
+                <input
+                  type="number"
+                  step="0.001"
+                  value={salePrice}
+                  onChange={e => setSalePrice(e.target.value)}
+                  className="input w-full"
+                  placeholder="e.g. 120"
+                  min="0.001"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  You must send this exact amount of ETH with the transaction.
+                </p>
+              </div>
+              {salePrice && property && (
+                <div className="p-2 bg-white rounded text-xs text-gray-600 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Payout per share:</span>
+                    <span className="font-medium">{(parseFloat(salePrice) / parseInt(property.totalShares)).toFixed(6)} ETH</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total shares:</span>
+                    <span className="font-medium">{property.totalShares}</span>
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={async () => {
+                  if (!salePrice || parseFloat(salePrice) <= 0) return;
+                  const confirmed = window.confirm(
+                    `Initiate sale for Property #${property.propertyId} at ${salePrice} ETH?\n\nThis CANNOT be undone. You will send ${salePrice} ETH which investors can redeem proportionally.`
+                  );
+                  if (!confirmed) return;
+                  setTxStatus({ type: 'loading', message: 'Initiating property sale...' });
+                  try {
+                    const hash = await onInitiatePropertySale(property.propertyId, salePrice);
+                    setTxStatus({ type: 'success', message: `Sale initiated! Tx: ${hash.slice(0, 10)}...` });
+                    setSalePrice('');
+                    setShowPropertySale(false);
+                    setTimeout(() => setTxStatus(null), 6000);
+                  } catch (err) {
+                    setTxStatus({ type: 'error', message: err.reason || err.message || 'Sale initiation failed' });
+                    setTimeout(() => setTxStatus(null), 6000);
+                  }
+                }}
+                disabled={!salePrice || parseFloat(salePrice) <= 0 || isLoading}
+                className="btn w-full bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+              >
+                Confirm Property Sale
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Sold notice */}
+      {property?.sold && (
+        <div className="mt-4 p-4 bg-gray-100 border border-gray-300 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <span className="text-2xl">🏷️</span>
+            <div>
+              <p className="text-sm font-semibold text-gray-700">Property Sold</p>
+              <p className="text-xs text-gray-500">
+                Sale proceeds: {property.saleProceeds} ETH. Investors can claim via "Claim Sale Proceeds".
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Register New Property (collapsible) */}
       <div className="mt-6">

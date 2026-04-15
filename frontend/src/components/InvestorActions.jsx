@@ -9,6 +9,7 @@ export function InvestorActions({
   onClaimDividends,
   onReinvestDividends,
   onTransferShares,
+  onClaimSaleProceeds,
   isLoading,
   whitelistEnabled,
   isWhitelisted,
@@ -102,6 +103,18 @@ export function InvestorActions({
     }
   };
 
+  const handleClaimSaleProceeds = async () => {
+    setTxStatus({ type: 'loading', message: 'Claiming sale proceeds...' });
+    try {
+      const txHash = await onClaimSaleProceeds(property.propertyId);
+      setTxStatus({ type: 'success', message: `Proceeds claimed! Tx: ${txHash.slice(0, 10)}...` });
+      setTimeout(() => setTxStatus(null), 5000);
+    } catch (err) {
+      setTxStatus({ type: 'error', message: err.reason || err.message || 'Claim failed' });
+      setTimeout(() => setTxStatus(null), 5000);
+    }
+  };
+
   const handleTransferShares = async () => {
     if (!transferTo || !transferAmount || transferAmount < 1) return;
     
@@ -164,8 +177,57 @@ export function InvestorActions({
         </div>
       )}
 
+      {/* ── SOLD: Claim Sale Proceeds ─────────────────────────────── */}
+      {property.sold && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-lg border border-red-200">
+          <h4 className="font-medium text-gray-900 mb-3">Claim Sale Proceeds</h4>
+          <p className="text-xs text-gray-600 mb-3">
+            This property has been sold. Redeem your shares for your proportional payout.
+            Your shares will be burned upon redemption.
+          </p>
+
+          <div className="space-y-2 mb-4 text-sm">
+            <div className="flex justify-between text-gray-600">
+              <span>Your shares:</span>
+              <span className="font-medium">{investorInfo?.sharesOwned || '0'}</span>
+            </div>
+            <div className="flex justify-between text-gray-600">
+              <span>Payout per share:</span>
+              <span className="font-medium">
+                {property.totalShares
+                  ? (parseFloat(property.saleProceeds) / parseInt(property.totalShares)).toFixed(6)
+                  : '0'} ETH
+              </span>
+            </div>
+            <div className="flex justify-between text-lg font-bold text-red-700 border-t border-red-200 pt-2">
+              <span>Your payout:</span>
+              <span>
+                {investorInfo?.sharesOwned && property.totalShares
+                  ? (parseInt(investorInfo.sharesOwned) * parseFloat(property.saleProceeds) / parseInt(property.totalShares)).toFixed(6)
+                  : '0'} ETH
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleClaimSaleProceeds}
+            disabled={!investorInfo?.sharesOwned || parseInt(investorInfo.sharesOwned) === 0 || isLoading}
+            className="btn w-full bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? (
+              <><span className="spinner mr-2"></span>Processing...</>
+            ) : (
+              'Redeem Shares for Sale Proceeds'
+            )}
+          </button>
+          {(!investorInfo?.sharesOwned || parseInt(investorInfo.sharesOwned) === 0) && (
+            <p className="text-xs text-gray-500 text-center mt-2">You have no shares in this property.</p>
+          )}
+        </div>
+      )}
+
       {/* Buy Shares Section */}
-      <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+      {!property.sold && <div className="mb-6 p-4 bg-gray-50 rounded-lg">
         <h4 className="font-medium text-gray-900 mb-3">Buy Shares</h4>
         
         <div className="space-y-3">
@@ -215,10 +277,10 @@ export function InvestorActions({
             )}
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Transfer Shares Section */}
-      {investorInfo?.sharesOwned > 0 && (
+      {!property.sold && investorInfo?.sharesOwned > 0 && (
         <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
           <h4 className="font-medium text-gray-900 mb-3">Transfer Shares</h4>
           

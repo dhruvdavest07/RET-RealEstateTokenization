@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { CONTRACT_ADDRESSES, TOKEN_IT_ABI, NETWORK_CONFIG } from '../contracts/config';
+import { CONTRACT_ADDRESSES, TOKEN_IT_ABI, MARKETPLACE_ABI, NETWORK_CONFIG } from '../contracts/config';
 
 export function useWeb3() {
   const [account, setAccount] = useState(null);
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
   const [contract, setContract] = useState(null);
+  const [marketplaceContract, setMarketplaceContract] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState(null);
   const [chainId, setChainId] = useState(null);
@@ -36,12 +37,17 @@ export function useWeb3() {
           TOKEN_IT_ABI,
           readOnlyProvider
         );
-        
+
+        const readOnlyMarketplace = CONTRACT_ADDRESSES.MARKETPLACE !== '0x0000000000000000000000000000000000000000'
+          ? new ethers.Contract(CONTRACT_ADDRESSES.MARKETPLACE, MARKETPLACE_ABI, readOnlyProvider)
+          : null;
+
         // Test contract
         const totalProps = await readOnlyContract.getTotalProperties();
         console.log('Total properties:', totalProps.toString());
-        
+
         setContract(readOnlyContract);
+        setMarketplaceContract(readOnlyMarketplace);
         setProvider(readOnlyProvider);
         setDebugInfo(`Connected to block ${blockNumber}, ${totalProps} properties`);
       } catch (err) {
@@ -83,13 +89,18 @@ export function useWeb3() {
       const signer = provider.getSigner();
       setSigner(signer);
 
-      // Create contract instance with signer for writes
+      // Create contract instances with signer for writes
       const contract = new ethers.Contract(
         CONTRACT_ADDRESSES.TOKEN_IT,
         TOKEN_IT_ABI,
         signer
       );
       setContract(contract);
+
+      const marketplace = CONTRACT_ADDRESSES.MARKETPLACE !== '0x0000000000000000000000000000000000000000'
+        ? new ethers.Contract(CONTRACT_ADDRESSES.MARKETPLACE, MARKETPLACE_ABI, signer)
+        : null;
+      setMarketplaceContract(marketplace);
 
       // Get chain ID
       const network = await provider.getNetwork();
@@ -136,6 +147,7 @@ export function useWeb3() {
     setProvider(null);
     setSigner(null);
     setContract(null);
+    setMarketplaceContract(null);
     setChainId(null);
     setError(null);
   }, []);
@@ -178,6 +190,7 @@ export function useWeb3() {
     provider,
     signer,
     contract,
+    marketplaceContract,
     isConnecting,
     error,
     chainId,

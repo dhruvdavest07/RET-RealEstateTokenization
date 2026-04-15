@@ -59,21 +59,40 @@ async function main() {
   console.log("   Matches TokenIT:", newOwner === tokenITAddress);
   console.log("");
 
+  // Deploy Marketplace contract
+  console.log("------------------------------------------");
+  console.log("Step 4: Deploying Marketplace contract...");
+  console.log("------------------------------------------");
+
+  const Marketplace = await ethers.getContractFactory("Marketplace");
+  const marketplace = await Marketplace.deploy(tokenITAddress);
+  await marketplace.deployed();
+
+  const marketplaceAddress = marketplace.address;
+  console.log("✅ Marketplace deployed to:", marketplaceAddress);
+  console.log("");
+
   // Summary
   console.log("==========================================");
   console.log("     Deployment Summary");
   console.log("==========================================");
-  console.log("PropertyNFT:", propertyNFTAddress);
-  console.log("TokenIT:    ", tokenITAddress);
+  console.log("PropertyNFT: ", propertyNFTAddress);
+  console.log("TokenIT:     ", tokenITAddress);
+  console.log("Marketplace: ", marketplaceAddress);
   console.log("");
-  console.log("Contract artifacts saved to ./artifacts");
+  console.log("Update frontend/src/contracts/config.js:");
+  console.log(`  TOKEN_IT:    "${tokenITAddress}",`);
+  console.log(`  PROPERTY_NFT:"${propertyNFTAddress}",`);
+  console.log(`  MARKETPLACE: "${marketplaceAddress}",`);
   console.log("==========================================");
-  
+
   return {
     propertyNFT,
     tokenIT,
+    marketplace,
     propertyNFTAddress,
     tokenITAddress,
+    marketplaceAddress,
   };
 }
 
