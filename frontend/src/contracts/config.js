@@ -13,7 +13,7 @@ export const CONTRACT_ADDRESSES = {
   PROPERTY_NFT: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
 
   // Marketplace contract address (UPDATE THIS after each deploy)
-  MARKETPLACE: "0x0000000000000000000000000000000000000000",
+  MARKETPLACE: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
 };
 
 // Hardhat local network configuration

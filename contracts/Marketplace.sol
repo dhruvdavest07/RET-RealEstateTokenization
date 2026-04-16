@@ -73,7 +73,7 @@ contract Marketplace {
         require(pricePerShare > 0, "Price must be greater than zero");
 
         (address shareTokenAddr, bool sold) = tokenIT.getPropertyShareToken(propertyId);
-        require(!sold, "Property has been sold — cannot list shares");
+        require(!sold, "Property has been sold - cannot list shares");
 
         IERC20 shareToken = IERC20(shareTokenAddr);
         require(shareToken.balanceOf(msg.sender) >= shares, "Insufficient share balance");
@@ -121,7 +121,7 @@ contract Marketplace {
         IERC20 shareToken = IERC20(listing.shareToken);
         require(
             shareToken.transferFrom(seller, msg.sender, shares),
-            "Share transfer failed — seller may have revoked approval"
+            "Share transfer failed - seller may have revoked approval"
         );
 
         payable(seller).transfer(totalCost);

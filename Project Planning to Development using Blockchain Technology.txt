@@ -1,0 +1,290 @@
+﻿Course:  
+Introduction to Blockchain: Technologies, Approaches and Applications 
+Project planning, design,  development, and deployment  using Blockchain Technology 
+Sanjay Chaudhary 
+School of Engineering and Applied Science 
+Ahmedabad University 
+Ahmedabad, Gujarat, India
+Brief 
+• Software project phases 
+• Planning 
+• Design 
+• Development 
+• Deployment 
+2
+Planning 
+• Do You Actually Need a Blockchain? 
+• Clearly define what goes on-chain vs. off-chain. • Blockchain Selection 
+• Regulatory & Legal Assessment 
+• Team Competency Audit 
+3
+Planning 
+Do You Actually Need a Blockchain? 
+• Need decentralization (no single party should own the  data),  
+• immutability (records must not be altered),  
+• and trustless coordination between parties who don't  fully trust each other.  
+• If your use case has a single trusted administrator, a  traditional database is faster, cheaper, and simpler. 
+4
+Planning 
+Clearly define what goes on-chain vs. off-chain • Not everything belongs on a blockchain — 
+• only state changes that require consensus and auditability  should be on-chain.  
+• If your project involves a token or digital asset, design your  tokenomics carefully: supply, distribution, incentive  
+mechanisms, and inflation/deflation models all have long term consequences that are very hard to reverse once  deployed. 
+5
+Planning 
+Blockchain Selection - Choose the right network • Key dimensions to evaluate: 
+• throughput (TPS),  
+• finality time,  
+• transaction cost (gas fees),  
+• smart contract language (Solidity, Rust, Move), • ecosystem maturity, and  
+• whether you need a public, private, or consortium chain.  For enterprise use cases, Hyperledger Fabric or Besu may suit better than Ethereum mainnet.  
+• For DeFi (Decentralized Finance) or consumer apps,  Ethereum, Polygon, or Solana are more appropriate. 
+6
+Planning 
+Regulatory & Legal Assessment 
+• Identify applicable regulations early — GDPR (right to  erasure conflicts directly with immutability),  
+• AML/KYC requirements if handling financial  transactions, and  
+• securities laws if issuing tokens.  
+• Engage legal counsel before writing a single line of code. 7
+Planning 
+Team Competency Audit 
+• Blockchain development requires skills that differ from  conventional software:  
+• cryptographic primitives,  
+• consensus understanding,  
+• gas optimization, and  
+• adversarial security thinking. 
+• Identify gaps and hire or train accordingly before the  project begins. 
+8
+Design 
+• Architecture Decisions 
+• Smart Contract Architecture 
+• Key Management & Identity Design 
+• Economic Security Modeling 
+• Event & Indexing Design 
+9
+Design 
+• Architecture Decisions 
+• Decide your on-chain/off-chain boundary upfront. • Storing large data on-chain is prohibitively expensive — • use IPFS, Arweave, or a traditional database for files and  
+metadata, storing only the hash on-chain for integrity proof • Design for the fact that on-chain storage costs money and is  permanent. 
+10
+Design 
+Smart Contract Architecture 
+• Apply the principle of separation of concerns:  • break contracts into  
+• logic contracts, storage contracts, and proxy contracts.  • Plan for upgradeability from day one — immutability is a  feature but also a trap.  
+• Use the Proxy Pattern (e.g., OpenZeppelin's Transparent Proxy  or UUPS) so you can fix bugs post-deployment without losing  state.  
+• Define clear ownership and access control roles using  established standards like OpenZeppelin's AccessControl or  Ownable. 
+11
+Design 
+Key Management & Identity Design 
+• Design how users and system components will manage  private keys.  
+• Hardware Security Modules (HSMs) for server-side keys,  multi-sig wallets (Gnosis Safe) for treasury and admin  functions, and  
+• account abstraction (ERC-4337) for improved user  experience are all worth evaluating at design time, not  after. 
+12
+Design 
+Economic Security Modeling 
+• If your system has any financial incentives (staking,  rewards, fees), model the game theory carefully.  
+• Ask:  
+• What does a rational, profit-maximizing actor do with  your system?  
+• What does a malicious actor with significant capital do? • Run adversarial economic simulations before finalizing  the design. 
+13
+Design 
+Event & Indexing Design 
+• On-chain queries are expensive and limited.  • Design your smart contract events carefully — 
+• they are the primary mechanism for off-chain systems  (indexers like The Graph, or custom event listeners) to  track state changes efficiently.  
+• Poor event design leads to expensive workarounds later. 14
+Development 
+• Use Audited Libraries, Not Custom Cryptography • Security-First Development Practices 
+• Test Coverage — Aim for 100% on Critical Paths • Static Analysis & Linting in CI/CD 
+• Gas Optimization 
+• Multi-Sig for All Admin Functions 
+15
+Development 
+Use Audited Libraries, Not Custom Cryptography • Never implement cryptographic primitives from scratch. 
+• Use battle-tested libraries like OpenZeppelin Contracts  for Solidity.  
+• The blockchain security graveyard is full of projects that  wrote custom ERC-20 implementations or custom  access control and lost millions. 
+16
+Development 
+Security-First Development Practices 
+• Follow the Checks-Effects-Interactions pattern to prevent  reentrancy attacks.  
+• Use SafeMath (or Solidity 0.8+ built-in overflow  protection).  
+• Avoid tx.origin for authorization.  
+• Be extremely cautious with delegatecall.  
+• Treat every external contract call as untrusted.  • Apply the principle of least privilege everywhere. 
+17
+Development 
+Test Coverage — Aim for 100% on Critical Paths • Blockchain bugs are permanent and often catastrophic. • Write unit tests, integration tests, and fuzz tests.  
+• Use tools like Hardhat or Foundry (Forge's fuzzer is  particularly powerful).  
+• Simulate edge cases:  
+• What happens at maximum uint256 values?  
+• What if a user sends ETH directly to a contract?  
+• What if a reentrant call is made mid-execution? 
+18
+Development 
+Static Analysis & Linting in CI/CD 
+• Static code analysis is a method of examining your  source code without executing it and running the  program 
+• Continuous Integration and Continuous Delivery (or  Deployment), a DevOps method that automates the  building, testing, and deployment of software to deliver  code faster and more reliably. 
+• Integrate Slither and Solhint into your CI pipeline from  day one. These catch the majority of common  vulnerability classes (SWC registry) automatically and  should block deployment if critical issues are found. 
+19
+Development 
+Gas Optimization 
+• Understand the EVM gas cost model.  
+• Use calldata instead of memory for read-only function  parameters.  
+• Pack struct variables to fit within 32-byte storage slots. • Minimize storage writes (most expensive operation). 
+• Avoid unbounded loops — they can hit the block gas limit  and permanently brick a function.  
+• Profile gas usage with Hardhat Gas Reporter on every  commit. 
+20
+Development 
+Multi-Sig for All Admin Functions 
+• No single wallet should have unilateral admin control  over a deployed contract.  
+• privileged operations (pausing, upgrading, setting  parameters) must go through a multi-signature wallet  requiring M-of-N approvals.  
+• This is non-negotiable for any project handling real value. 21
+Deployment 
+• Testnet → Staging → Mainnet Pipeline 
+• Professional Security Audit 
+• Bug Bounty Program (Offer meaningful rewards) • Incident Response Plan 
+• Monitoring & Alerting 
+• Key Ceremonies & Operational Security 
+• Documentation & Verified Source Code 
+22
+Deployment 
+Testnet → Staging → Mainnet Pipeline 
+• Never deploy directly to mainnet.  
+• Follow a strict progression:  
+• local development → public testnet (Sepolia, Goerli for  Ethereum) → a staging environment that mirrors  mainnet conditions → mainnet.  
+• Run your full test suite and manual QA at each stage. • Load-test on testnet with realistic transaction volumes. 
+23
+Deployment 
+Professional Security Audit 
+• Before mainnet deployment, commission at least one — preferably two — independent security audits from  reputable firms (Trail of Bits, OpenZeppelin, Certora,  Halborn, etc.).  
+• Provide auditors with your full specification and threat  model, not just the code.  
+• Budget 3–8 weeks and significant cost for this.  
+• A thorough audit is far cheaper than a post-deployment  exploit. Publish the audit report publicly — it builds trust. 
+24
+Deployment 
+Bug Bounty Program 
+• a crowdsourced security initiative where organizations  reward ethical hackers for discovering and reporting  vulnerabilities.  
+• Launch a bug bounty program (via Immunefi or  HackerOne) alongside or shortly after mainnet deployment.  
+• Offer meaningful rewards — typically 10–20% of at-risk  Total Value Locked (TVL) for critical findings.  
+• The security community will find what auditors miss. 25
+Deployment 
+Incident Response Plan 
+• Define and document your incident response procedure  before launch.  
+• Who gets called when an exploit is detected?  • What are the steps to pause the contract (if pausable)? • How will you communicate with users?  
+• How long does it take to execute an emergency  upgrade?  
+• Practice this procedure as a team drill.  
+• Projects that recover well from exploits had a plan; those  that don't, didn't. 
+26
+Deployment 
+Monitoring & Alerting 
+• Set up real-time on-chain monitoring using tools like  Tenderly, OpenZeppelin Defender, or Forta Network. 
+• Alert on anomalous transaction patterns, large fund  movements, failed pauses, and unusual gas spikes.  
+• The window between exploit detection and total loss is  often minutes — automated alerts are the difference  between mitigating and losing everything. 
+27
+Deployment 
+Key Ceremonies & Operational Security 
+• Conduct a formal key generation ceremony for admin  multi-sig wallets, ideally with hardware wallets and  geographically distributed signers.  
+• Document key holder responsibilities, succession plans,  and rotation schedules.  
+• Operational security around private keys is frequently  the weakest link in otherwise well-engineered systems. 
+28
+Deployment 
+Documentation & Verified Source Code 
+• Verify your contract source code on Etherscan (or the  relevant block explorer) immediately after deployment. 
+• Publish your ABI, architecture diagrams, and a plain language explanation of what the contracts do. 
+• Transparency is both a trust signal and a security  practice — the community can help identify issues in  open code. 
+29
+Common Concerns 
+Decentralization Roadmap 
+• many projects launch with significant centralization  (admin keys, upgradeable proxies, oracle dependencies)  and plan to progressively decentralize.  
+• Make this roadmap explicit and public from day one. 
+• Users and investors need to understand the trust model  at every stage of maturity. 
+30
+Common Concerns 
+Oracle Design 
+• if your contracts consume off-chain data (prices,  randomness, real-world events), your oracle is a critical  attack surface.  
+• Use decentralized oracles like Chainlink or Pyth rather  than a centralized feed.  
+• Design for oracle failure and stale data conditions. 31
+Common Concerns 
+Dependency Management 
+• every external contract your system calls is a trust  boundary and a potential attack vector (as seen in many  DeFi composability exploits).  
+• Audit and version-pin all dependencies.  
+• Monitor them for upgrades or governance changes that  could affect your system. 
+32
+Common Concerns 
+Community & Governance 
+• if your project will eventually be community-governed,  design the governance mechanism carefully.  
+• Prevent governance attacks (flash-loan voting, low quorum takeover), implement time-locks on governance  actions, and ensure the initial governance parameters  are conservative. 
+33
+Common Concerns 
+• The overarching principle is:  
+• blockchain systems are adversarial environments by  default. 
+• Unlike traditional software where a bug causes  downtime, a blockchain bug can cause permanent,  irreversible financial loss at scale.  
+• The planning, design, and testing phases deserve a level  of rigor proportional to that risk. 
+34
+Writing Solidity Code for Smart Contracts 
+Code Structure & Organization 
+• A consistent, well-ordered file and contract layout is the  foundation of readable, auditable Solidity.  
+• Every file and contract should follow a predictable  structure so auditors and reviewers know exactly where  to look. 
+35
+Writing Solidity Code (cont) 
+1. Code Structure & Organization 
+• File & Contract Layout  
+• One Contract Per File 
+• Pragma Versioning 
+2. Security Patterns 
+• Checks-Effects-Interactions (CEI) 
+• Reentrancy Guards 
+• Authorization: Use msg.sender, Never tx.origin • Safe ETH Transfers 
+• Safe ERC-20 Transfers 
+• delegatecall Safety 
+36
+Writing Solidity Code (cont) 
+3. Data Types & Variables 
+• Default to uint256 
+• Use constant and immutable 
+• Explicit Visibility on Every Declaration 
+• Custom Errors Over Require Strings 
+4. Gas Optimization 
+• Cache Storage Variables in Memory 
+• Avoid Unbounded Loops  
+• Use calldata for External Function Parameters • Multiply Before Dividing 
+• Short-Circuit Boolean Expressions  
+37
+Writing Solidity Code (cont) 
+5. Access Control & Authorization 
+• Role-Based Access Control (RBAC) 
+• Two-Step Ownership Transfer 
+• Time-Locks on Critical Actions 
+6. Events & Logging 
+• Emit Events for Every State Change 
+• Events Are Write-Only 
+• Event Design for Indexers 
+38
+Writing Solidity Code (cont) 
+7. Arithmetic & Numeric Safety 
+• Solidity 0.8+ Built-In Overflow Protection 
+• Fixed-Point Arithmetic 
+• Division Truncation Awareness 
+8. Upgradeability 
+• Proxy Pattern 
+• Storage Layout — The Critical Rule 
+• Verify Storage Layout Before Every Upgrade 
+39
+Writing Solidity Code (cont) 
+9. Testing Standards 
+• Testing Pyramid for Smart Contracts 
+• Test Failure Modes — Not Just Happy Paths 
+• Static Analysis in CI/CD 
+10. Documentation & NatSpec 
+• NatSpec Tags 
+• Full Contract NatSpec Example 
+40
+Writing Solidity Code (cont) 
+11. External Interactions & Dependencies 
+• Use Audited Libraries 
+• Treat Every External Call as Untrusted 
+• Oracle Security 
+• Pin and Audit All Dependencies 
+12. Pre-Submission Developer Checklist 
+41
+References 
+42

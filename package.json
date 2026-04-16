@@ -6,7 +6,7 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy": "hardhat run scripts/deploy.js",
+    "deploy": "hardhat run scripts/deploy.js --network localhost",
     "demo": "hardhat run scripts/demo.js",
     "node": "hardhat node",
     "create-property": "hardhat run scripts/create-property.js",
