@@ -207,35 +207,28 @@ npx hardhat console --network localhost
 
 You now have a JavaScript REPL connected to your blockchain. Anything you type runs against the live local chain.
 
+> ⚠️ **CRITICAL PASTE RULE** — the Hardhat console is a REPL that executes **every time you press Enter**. If you paste a multi-line statement line-by-line, Node interprets each line separately and throws `Uncaught SyntaxError: Unexpected token ')'` because it sees an unfinished call.
+>
+> **Two ways to avoid this:**
+> 1. **Select an entire code block and paste it in one shot** (most terminals handle this fine — the REPL detects the multi-line input)
+> 2. **Use the single-line versions below** — every statement fits on one line so you can paste or type them one at a time safely
+
 ### B.1 — Connect to deployed contracts
-Paste this **block-by-block** (don't paste the whole thing at once):
 
 ```js
-// Get the test accounts (admin + investors)
 const [admin, investor1, investor2, investor3] = await ethers.getSigners();
 console.log("Admin:", admin.address);
 console.log("Investor 1:", investor1.address);
-
-// Connect to deployed contracts (use addresses from your deploy output!)
-const tokenIT = await ethers.getContractAt(
-  "TokenIT",
-  "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
-);
-const propertyNFT = await ethers.getContractAt(
-  "PropertyNFT",
-  "0x5FbDB2315678afecb367f032d93F642f64180aa3"
-);
+const tokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+const propertyNFT = await ethers.getContractAt("PropertyNFT", "0x5FbDB2315678afecb367f032d93F642f64180aa3");
 ```
 
 ### B.2 — Create a property (as admin)
+
+Arguments: location, value (ETH), total shares, min purchase, max purchase.
+
 ```js
-const tx = await tokenIT["registerAndFractionalizeProperty(string,uint256,uint256,uint256,uint256)"](
-  "789 Demo Street, Mumbai",     // location
-  ethers.utils.parseEther("100"), // value: 100 ETH
-  1000,                           // total shares
-  10,                             // min purchase
-  200                             // max purchase
-);
+const tx = await tokenIT["registerAndFractionalizeProperty(string,uint256,uint256,uint256,uint256)"]("789 Demo Street, Mumbai", ethers.utils.parseEther("100"), 1000, 10, 200);
 await tx.wait();
 console.log("Property created! Tx hash:", tx.hash);
 ```
@@ -264,16 +257,14 @@ console.log("Sold:           ", prop.sold);
 
 ### B.4 — Investor buys shares
 ```js
-// Connect TokenIT as Investor 1 (so msg.sender = investor1)
 const asInvestor1 = tokenIT.connect(investor1);
-
-// Buy 100 shares — must send 100 × 0.1 = 10 ETH
-const buyTx = await asInvestor1.buyShares(1, 100, {
-  value: ethers.utils.parseEther("10"),
-});
+const buyTx = await asInvestor1.buyShares(1, 100, { value: ethers.utils.parseEther("10") });
 const receipt = await buyTx.wait();
 console.log("Bought! Gas used:", receipt.gasUsed.toString());
 ```
+- Line 1: re-connects TokenIT with Investor 1 as `msg.sender`
+- Line 2: buys 100 shares, sends 100 × 0.1 = 10 ETH
+- Line 3: waits for the block to be mined
 
 ### B.5 — Verify Investor 1 actually owns the shares
 This is the "wow" moment — show that the ERC20 contract knows the balance.
@@ -307,11 +298,8 @@ console.log("Investor 1 ETH balance:", ethers.utils.formatEther(investor1Bal), "
 
 ### B.7 — Admin deposits rent
 ```js
-const rentTx = await tokenIT.depositRent(1, {
-  value: ethers.utils.parseEther("10"),
-});
+const rentTx = await tokenIT.depositRent(1, { value: ethers.utils.parseEther("10") });
 await rentTx.wait();
-
 const propAfter = await tokenIT.getProperty(1);
 console.log("Rent pool now:", ethers.utils.formatEther(propAfter.rentPool), "ETH");
 // → 10 ETH
@@ -388,13 +376,8 @@ Events are the blockchain's permanent log. Every action you see in the UI was or
 ```js
 const tx = await tokenIT.depositRent(1, { value: ethers.utils.parseEther("5") });
 const receipt = await tx.wait();
-
 console.log("Events emitted:");
-for (const event of receipt.events || []) {
-  if (event.event) {
-    console.log(`  ${event.event}:`, event.args);
-  }
-}
+(receipt.events || []).filter(e => e.event).forEach(e => console.log(`  ${e.event}:`, e.args));
 ```
 
 You'll see something like:
@@ -405,14 +388,9 @@ Events emitted:
 
 ### Query past events (audit trail)
 ```js
-// Get every SharesPurchased event ever emitted
 const filter = tokenIT.filters.SharesPurchased();
 const events = await tokenIT.queryFilter(filter);
-events.forEach((e) => {
-  console.log(
-    `Property #${e.args.propertyId}: ${e.args.buyer} bought ${e.args.amount} shares for ${ethers.utils.formatEther(e.args.cost)} ETH`
-  );
-});
+events.forEach(e => console.log(`Property #${e.args.propertyId}: ${e.args.buyer} bought ${e.args.amount} shares for ${ethers.utils.formatEther(e.args.cost)} ETH`));
 ```
 
 **This is huge for the viva** — show that you can reconstruct the entire history of the platform from on-chain events. No database needed.
@@ -489,27 +467,18 @@ npx hardhat run scripts/setup-demo.js --network localhost
 npx hardhat console --network localhost
 ```
 
-### Inside Hardhat console — minimum viable demo (paste in order)
+### Inside Hardhat console — minimum viable demo
+
+Every line is a complete statement — safe to paste or type one at a time.
+
 ```js
 const [admin, investor1, investor2] = await ethers.getSigners();
 const tokenIT = await ethers.getContractAt("TokenIT", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
-
-// 1. Create property
-await (await tokenIT["registerAndFractionalizeProperty(string,uint256,uint256,uint256,uint256)"](
-  "Demo Street", ethers.utils.parseEther("100"), 1000, 10, 200
-)).wait();
-
-// 2. Investor buys 100 shares
+await (await tokenIT["registerAndFractionalizeProperty(string,uint256,uint256,uint256,uint256)"]("Demo Street", ethers.utils.parseEther("100"), 1000, 10, 200)).wait();
 const asInv1 = tokenIT.connect(investor1);
 await (await asInv1.buyShares(1, 100, { value: ethers.utils.parseEther("10") })).wait();
-
-// 3. Admin deposits rent
 await (await tokenIT.depositRent(1, { value: ethers.utils.parseEther("10") })).wait();
-
-// 4. Investor claims dividends
 await (await asInv1.claimDividends(1)).wait();
-
-// 5. Read final state
 const p = await tokenIT.getProperty(1);
 console.log("Rent pool:", ethers.utils.formatEther(p.rentPool));
 console.log("Sale proceeds:", ethers.utils.formatEther(p.shareSaleProceeds));
@@ -517,6 +486,14 @@ const shareToken = await ethers.getContractAt("PropertyShares", p.shareToken);
 console.log("Investor 1 shares:", (await shareToken.balanceOf(investor1.address)).toString());
 console.log("Investor 1 ETH:", ethers.utils.formatEther(await ethers.provider.getBalance(investor1.address)));
 ```
+
+What each line does:
+1–2. Connect to accounts + deployed TokenIT contract
+3. Create property (registers NFT, deploys ERC20)
+4–5. Investor 1 buys 100 shares for 10 ETH
+6. Admin deposits 10 ETH rent
+7. Investor 1 claims dividends
+8–13. Print final state — rent pool, sale proceeds, investor shares, investor ETH
 
 ### Useful contract addresses (fresh deploy on a clean node)
 ```
